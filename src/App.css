@@ -581,3 +581,30 @@
     body { padding: 5px; }
     .container { padding: 12px; gap: 10px; }
   }
+  /* Стили для сетки профиля и селектора активности */
+.profile-inputs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.full-width-input {
+  grid-column: span 2;
+}
+
+.activity-select {
+  padding: 10px;
+  border: 1px solid #ce93d8;
+  border-radius: 6px;
+  background-color: white;
+  font-size: 0.95rem;
+  color: #333;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.status-hint-text {
+  margin-top: 4px;
+}

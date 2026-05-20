@@ -6,10 +6,10 @@ import './App.css';
 // ПОДКЛЮЧЕНИЕ К ВАШЕМУ ОБЛАКУ
 // ==========================================================================
 const SUPABASE_URL = "https://cngmceduijevcrwfkzsg.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuZ21jZWR1aWpldmNyd2ZrenNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTk3NTAsImV4cCI6MjA5NDgzNTc1MH0.iNb0gCvlmW2ETwTocMpIxyIERHMqllV5ZMLb67gpW9w";
+const SUPABASE_ANON_KEY = "ВСТАВЬТЕ_СЮДА_ВАШ_ДЛИННЫЙ_ANON_PUBLIC_KEY";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// СЛОВАРЬ ПЕРЕВОДОВ
+// СЛОВАРЬ П ПЕРЕВОДОВ
 const translations = {
   ru: {
     title: "🐈 Дневник Цири",
@@ -56,7 +56,7 @@ const translations = {
     statusLabel: "Статус:",
     statusKitten: "Цирилла растёт — активный рост 🍼",
     statusAdult: "Цири взрослая кошка 🐈",
-    brandNorms: "💡 Официальные 100% нормы бренда:",
+    brandNorms: "💡 Текущие 100% нормы бренда с учётом активности:",
     onlyDry: "Только сухой корм:",
     onlyWet: "Только влажный корм:",
     mixedTitle: "🔄 Динамическое смешанное кормление Цири:",
@@ -70,7 +70,10 @@ const translations = {
     loginTitle: "🔐 Вход в семейный аккаунт Цири",
     loginBtn: "Войти",
     registerBtn: "Создать аккаунт",
-    loadingText: "Загрузка данных из облака... ☁️"
+    loadingText: "Загрузка данных из облака... ☁️",
+    activityLabel: "Уровень активности Цири:",
+    activityCalm: "💤 Спокойная / Малоподвижная",
+    activityActive: "⚡ Активная / Бешеный тыгыдык"
   },
   en: {
     title: "🐈 Ciri's Diary",
@@ -117,7 +120,7 @@ const translations = {
     statusLabel: "Status:",
     statusKitten: "Ciri is growing — active growth 🍼",
     statusAdult: "Ciri is an adult cat 🐈",
-    brandNorms: "💡 Official 100% Brand Norms:",
+    brandNorms: "💡 Current 100% Brand Norms with Activity adjustment:",
     onlyDry: "Dry food only:",
     onlyWet: "Wet food only:",
     mixedTitle: "🔄 Ciri's Dynamic Mixed Feeding:",
@@ -131,7 +134,10 @@ const translations = {
     loginTitle: "🔐 Ciri's Family Account Login",
     loginBtn: "Login",
     registerBtn: "Sign Up",
-    loadingText: "Fetching cloud data... ☁️"
+    loadingText: "Fetching cloud data... ☁️",
+    activityLabel: "Ciri's Activity Level:",
+    activityCalm: "💤 Calm / Indoor",
+    activityActive: "⚡ Active / Hyperactive"
   }
 };
 
@@ -140,7 +146,7 @@ const monthNamesEn = ["January", "February", "March", "April", "May", "June", "J
 
 function App() {
   // ==========================================================================
-  // СТРОГИЙ ПОРЯДОК ХУКОВ
+  // СТРОГИЙ ПОРЯДОК ХУКОВ (НЕ МЕНЯТЬ МЕСТАМИ)
   // ==========================================================================
   const [user, setUser] = useState(null);
   const [authEmail, setAuthEmail] = useState('');
@@ -151,6 +157,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('care');
   const [catAge, setCatAge] = useState(6);
   const [catAdultWeight, setCatAdultWeight] = useState(4);
+  const [catActivity, setCatActivity] = useState('active'); // НАШ НОВЫЙ ХУК АКТИВНОСТИ
   const [logs, setLogs] = useState([]);
 
   const [foodAmount, setFoodAmount] = useState('');
@@ -163,20 +170,18 @@ function App() {
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
   const [isAdminMode, setIsAdminMode] = useState(false);
 
-  // Специфичные эффекты аутентификации
+  // Эффекты сессии
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
-  // Синхронизация при авторизации
+  // Синхронизация с облаком при загрузке
   useEffect(() => {
     if (user) {
       setIsLoadingData(true);
@@ -185,6 +190,7 @@ function App() {
         if (data) {
           setCatAge(data.age);
           setCatAdultWeight(data.adult_weight);
+          setCatActivity(data.activity_level || 'active'); // Выкачиваем активность
         }
       });
 
@@ -218,12 +224,9 @@ function App() {
 
   const t = translations[lang];
 
-  const todaysLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === getTodayString());
   const filteredLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === selectedDate);
 
-  // ==========================================================================
-  // ВЫЧИСЛЕНИЯ СТАТИСТИКИ
-  // ==========================================================================
+  // Сбор статистики
   const totalDrySelected = filteredLogs
     .filter(log => log.type === 'food' && log.foodType === 'dry')
     .reduce((sum, log) => sum + log.amount, 0);
@@ -236,36 +239,53 @@ function App() {
   const omega3CountSelected = filteredLogs.filter(log => log.omega3).length;
   const maltPasteCountSelected = filteredLogs.filter(log => log.maltPaste).length;
 
+  // Формула Carnilove с динамическим коэффициентом активности
   const getCarniloveDryNorm = (adultWeight, age) => {
-    if (age >= 12) return { min: Math.round(adultWeight * 12), max: Math.round(adultWeight * 14) };
-    let ageGroup = '';
-    if (age >= 2 && age <= 4) ageGroup = '2-4';
-    else if (age > 4 && age <= 6) ageGroup = '4-6';
-    else if (age > 6 && age <= 8) ageGroup = '6-8';
-    else if (age > 8 && age < 12) ageGroup = '8-12';
-    else return { min: 25, max: 45 };
-
-    if (adultWeight <= 3) {
-      if (ageGroup === '2-4') return { min: 25, max: 45 };
-      if (ageGroup === '4-6') return { min: 40, max: 50 };
-      if (ageGroup === '6-8') return { min: 45, max: 55 };
-      return { min: 50, max: 60 };
-    } else if (adultWeight <= 4) {
-      if (ageGroup === '2-4') return { min: 45, max: 55 };
-      if (ageGroup === '4-6') return { min: 55, max: 65 };
-      if (ageGroup === '6-8') return { min: 66, max: 75 };
-      return { min: 70, max: 80 };
-    } else if (adultWeight <= 5) {
-      if (ageGroup === '2-4') return { min: 50, max: 55 };
-      if (ageGroup === '4-6') return { min: 60, max: 65 };
-      if (ageGroup === '6-8') return { min: 70, max: 75 };
-      return { min: 75, max: 80 };
+    let baseNorm = { min: 25, max: 45 };
+    
+    if (age >= 12) {
+      baseNorm = { min: Math.round(adultWeight * 12), max: Math.round(adultWeight * 14) };
     } else {
-      if (ageGroup === '2-4') return { min: 55, max: 55 };
-      if (ageGroup === '4-6') return { min: 60, max: 60 };
-      if (ageGroup === '6-8') return { min: 75, max: 75 };
-      return { min: 80, max: 80 };
+      let ageGroup = '';
+      if (age >= 2 && age <= 4) ageGroup = '2-4';
+      else if (age > 4 && age <= 6) ageGroup = '4-6';
+      else if (age > 6 && age <= 8) ageGroup = '6-8';
+      else if (age > 8 && age < 12) ageGroup = '8-12';
+
+      if (adultWeight <= 3) {
+        if (ageGroup === '2-4') baseNorm = { min: 25, max: 45 };
+        else if (ageGroup === '4-6') baseNorm = { min: 40, max: 50 };
+        else if (ageGroup === '6-8') baseNorm = { min: 45, max: 55 };
+        else baseNorm = { min: 50, max: 60 };
+      } 
+      else if (adultWeight <= 4) {
+        if (ageGroup === '2-4') baseNorm = { min: 45, max: 55 };
+        else if (ageGroup === '4-6') baseNorm = { min: 55, max: 65 };
+        else if (ageGroup === '6-8') baseNorm = { min: 66, max: 75 };
+        else baseNorm = { min: 70, max: 80 };
+      } 
+      else if (adultWeight <= 5) {
+        if (ageGroup === '2-4') baseNorm = { min: 50, max: 55 };
+        else if (ageGroup === '4-6') baseNorm = { min: 60, max: 65 };
+        else if (ageGroup === '6-8') baseNorm = { min: 70, max: 75 };
+        else baseNorm = { min: 75, max: 80 };
+      } 
+      else {
+        if (ageGroup === '2-4') baseNorm = { min: 55, max: 55 };
+        else if (ageGroup === '4-6') baseNorm = { min: 60, max: 60 };
+        else if (ageGroup === '6-8') baseNorm = { min: 75, max: 75 };
+        else baseNorm = { min: 80, max: 80 };
+      }
     }
+
+    // Если Цири «Активная» — умножаем норму на 1.5 (40-50г превращается в 60-75г)
+    if (catActivity === 'active') {
+      return {
+        min: Math.round(baseNorm.min * 1.5),
+        max: Math.round(baseNorm.max * 1.5)
+      };
+    }
+    return baseNorm;
   };
 
   const dryNorm = getCarniloveDryNorm(catAdultWeight, catAge);
@@ -298,9 +318,7 @@ function App() {
 
   const datesWithLogs = new Set(logs.map(log => new Date(log.timestamp).toLocaleDateString('en-CA')));
 
-  // ==========================================================================
-  // СИНХРОННЫНЫЕ МЕТОДЫ ОБЛАКА
-  // ==========================================================================
+  // Методы синхронизации
   const handleAuth = async (mode) => {
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
@@ -326,7 +344,6 @@ function App() {
       foodType: type === 'food' ? foodType : null,
       amount: type === 'food' ? Number(amount) : 0,
       omega3: type === 'food' ? hasOmega3 : false,
-      comma: type === 'food' ? hasMaltPaste : false, // Совместимость со старыми полями
       maltPaste: type === 'food' ? hasMaltPaste : false,
       timestamp: logTimestamp.toISOString(),
     };
@@ -359,13 +376,18 @@ function App() {
     }
   };
 
-  const updateProfileInCloud = async (newAge, newWeight) => {
+  const updateProfileInCloud = async (newAge, newWeight, newActivity) => {
     setCatAge(newAge);
     setCatAdultWeight(newWeight);
-    await supabase.from('cat_profile').update({ age: newAge, adult_weight: newWeight }).eq('id', 1);
+    setCatActivity(newActivity);
+    await supabase.from('cat_profile').update({ 
+      age: newAge, 
+      adult_weight: newWeight, 
+      activity_level: newActivity 
+    }).eq('id', 1);
   };
 
-  // Хронологическая логика Тамагочи
+  // Тамагочи
   const chronologicallySortedLogs = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   const lastFoodLog = chronologicallySortedLogs.find(log => log.type === 'food');
   const lastWaterLog = chronologicallySortedLogs.find(log => log.type === 'water');
@@ -460,10 +482,9 @@ function App() {
 
       {activeTab === 'care' && (
         <>
-          {/* ОБНОВЛЕННЫЙ ЭКРАН ТАМАГОЧИ С ЖИВЫМ ФОТО ЦИРИ */}
           <div className="tamagotchi-screen">
             <div className="cat-avatar-container">
-              <img src="/ciri.jpg" alt="Ciri" className="cat-photo" onError={(e) => { e.target.style.display = 'none'; }} />
+              <img src="/Ciri.jpg" alt="Ciri" className="cat-photo" onError={(e) => { e.target.style.display = 'none'; }} />
               <div className="mood-badge">{catMood}</div>
             </div>
             <p className="status">{catStatusText}</p>
@@ -587,18 +608,37 @@ function App() {
       {activeTab === 'profile' && (
         <div className="profile-card">
           <h3>{t.profileTitle}</h3>
-          <div className="profile-inputs">
+          
+          {/* ОБНОВЛЕННАЯ СЕТКА ИНПУТОВ С СЕЛИКТОРОМ АКТИВНОСТИ */}
+          <div className="profile-inputs-grid">
             <div className="input-group">
               <label>{t.ageLabel}</label>
-              <input type="number" value={catAge} onChange={(e) => updateProfileInCloud(Math.max(1, Number(e.target.value)), catAdultWeight)} />
+              <input type="number" value={catAge} onChange={(e) => updateProfileInCloud(Math.max(1, Number(e.target.value)), catAdultWeight, catActivity)} />
             </div>
+            
             <div className="input-group">
               <label>{t.weightLabel}</label>
-              <input type="number" step="0.5" value={catAdultWeight} onChange={(e) => updateProfileInCloud(catAge, Math.max(0.1, Number(e.target.value)))} />
-              <small style={{color: '#7b1fa2', fontSize:'0.7rem'}}>{t.weightHint}</small>
+              <input type="number" step="0.5" value={catAdultWeight} onChange={(e) => updateProfileInCloud(catAge, Math.max(0.1, Number(e.target.value)), catActivity)} />
+            </div>
+
+            <div className="input-group full-width-input">
+              <label>{t.activityLabel}</label>
+              <select 
+                className="activity-select"
+                value={catActivity} 
+                onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, e.target.value)}
+              >
+                <option value="calm">{t.activityCalm}</option>
+                <option value="active">{t.activityActive}</option>
+              </select>
             </div>
           </div>
-          <div className="status-badge">
+
+          <div className="status-hint-text">
+            <small style={{color: '#7b1fa2', fontSize:'0.7rem'}}>{t.weightHint}</small>
+          </div>
+
+          <div className="status-badge" style={{marginTop: '12px'}}>
             {t.statusLabel} <strong>{catAge < 12 ? t.statusKitten : t.statusAdult}</strong>
           </div>
           <hr />
