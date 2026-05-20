@@ -146,7 +146,7 @@ const monthNamesEn = ["January", "February", "March", "April", "May", "June", "J
 
 function App() {
   // ==========================================================================
-  // СТРОГИЙ ПОРЯДОК ХУКОВ (НЕ МЕНЯТЬ МЕСТАМИ)
+  // СТРОГИЙ ПОРЯДОК ХУКОВ (НЕ МЕНЯТЬ МЕСТАМИ ВО ИЗБЕЖАНИЕ БЕЛОЙ СТРАНИЦЫ)
   // ==========================================================================
   const [user, setUser] = useState(null);
   const [authEmail, setAuthEmail] = useState('');
@@ -157,7 +157,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('care');
   const [catAge, setCatAge] = useState(6);
   const [catAdultWeight, setCatAdultWeight] = useState(4);
-  const [catActivity, setCatActivity] = useState('active'); // НАШ НОВЫЙ ХУК АКТИВНОСТИ
+  const [catActivity, setCatActivity] = useState('active'); 
   const [logs, setLogs] = useState([]);
 
   const [foodAmount, setFoodAmount] = useState('');
@@ -170,7 +170,7 @@ function App() {
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
   const [isAdminMode, setIsAdminMode] = useState(false);
 
-  // Эффекты сессии
+  // Эффекты аутентификации
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -181,7 +181,7 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Синхронизация с облаком при загрузке
+  // Синхронизация с облаком
   useEffect(() => {
     if (user) {
       setIsLoadingData(true);
@@ -190,7 +190,7 @@ function App() {
         if (data) {
           setCatAge(data.age);
           setCatAdultWeight(data.adult_weight);
-          setCatActivity(data.activity_level || 'active'); // Выкачиваем активность
+          setCatActivity(data.activity_level || 'active'); 
         }
       });
 
@@ -278,7 +278,6 @@ function App() {
       }
     }
 
-    // Если Цири «Активная» — умножаем норму на 1.5 (40-50г превращается в 60-75г)
     if (catActivity === 'active') {
       return {
         min: Math.round(baseNorm.min * 1.5),
@@ -318,7 +317,7 @@ function App() {
 
   const datesWithLogs = new Set(logs.map(log => new Date(log.timestamp).toLocaleDateString('en-CA')));
 
-  // Методы синхронизации
+  // Методы авторизации и записи логов
   const handleAuth = async (mode) => {
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
@@ -387,7 +386,7 @@ function App() {
     }).eq('id', 1);
   };
 
-  // Тамагочи
+  // Тамагочи логика настроения
   const chronologicallySortedLogs = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   const lastFoodLog = chronologicallySortedLogs.find(log => log.type === 'food');
   const lastWaterLog = chronologicallySortedLogs.find(log => log.type === 'water');
@@ -404,7 +403,7 @@ function App() {
     catStatusText = t.moodSnack;
   }
 
-  // Календарь
+  // Сетка дней календаря
   const viewYear = calendarViewDate.getFullYear();
   const viewMonth = calendarViewDate.getMonth();
   const monthNames = lang === 'ru' ? monthNamesRu : monthNamesEn;
@@ -484,6 +483,7 @@ function App() {
         <>
           <div className="tamagotchi-screen">
             <div className="cat-avatar-container">
+              {/* Путь к фото Ciri.jpg с большой буквы С */}
               <img src="/Ciri.jpg" alt="Ciri" className="cat-photo" onError={(e) => { e.target.style.display = 'none'; }} />
               <div className="mood-badge">{catMood}</div>
             </div>
@@ -609,7 +609,6 @@ function App() {
         <div className="profile-card">
           <h3>{t.profileTitle}</h3>
           
-          {/* ОБНОВЛЕННАЯ СЕТКА ИНПУТОВ С СЕЛИКТОРОМ АКТИВНОСТИ */}
           <div className="profile-inputs-grid">
             <div className="input-group">
               <label>{t.ageLabel}</label>
