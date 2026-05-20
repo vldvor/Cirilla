@@ -12,7 +12,7 @@
     align-items: flex-start;
   }
   
-  /* Главный контейнер (По умолчанию мобильный стиль) */
+  /* Главный контейнер (По умолчанию один столбец для мобильных) */
   .container {
     max-width: 440px;
     width: 100%;
@@ -26,7 +26,7 @@
     gap: 15px;
   }
   
-  /* Шапка и экшны */
+  /* Шапка приложения */
   .header-box {
     display: flex;
     justify-content: space-between;
@@ -69,13 +69,14 @@
     font-size: 0.8rem;
     border-radius: 6px;
     cursor: pointer;
+    transition: 0.2s;
   }
   
   .logout-btn:hover {
     background-color: #b0bec5;
   }
   
-  /* Вкладки */
+  /* Переключатель вкладок */
   .tabs-nav {
     display: flex;
     gap: 10px;
@@ -100,7 +101,7 @@
   }
   
   /* ==========================================================================
-     2. Компоненты экрана ухода (Тамагочи, Формы)
+     2. Экран Тамагочи (Статус и интерактивное фото Цири)
      ========================================================================== */
   .tamagotchi-screen {
     background: #e8f5e9;
@@ -110,15 +111,43 @@
     text-align: center;
   }
   
-  .mood {
-    font-size: 3.5rem;
-    margin: 5px 0;
+  .cat-avatar-container {
+    position: relative;
+    max-width: 100%;
+    height: 200px;
+    margin: 0 auto 12px auto;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: 2px solid #a5d6a7;
+  }
+  
+  .cat-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .mood-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.8rem;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
   }
   
   .status {
     font-weight: bold;
     color: #2e7d32;
     margin: 5px 0;
+    font-size: 1.05rem;
   }
   
   .last-actions {
@@ -135,7 +164,9 @@
     margin: 0;
   }
   
-  /* Формы управления */
+  /* ==========================================================================
+     3. Формы и элементы управления
+     ========================================================================== */
   .controls {
     display: flex;
     flex-direction: column;
@@ -226,7 +257,7 @@
   }
   
   /* ==========================================================================
-     3. Виджет Календаря
+     4. Интерактивный Календарь
      ========================================================================== */
   .calendar-widget {
     background: #e3f2fd;
@@ -321,7 +352,7 @@
   }
   
   /* ==========================================================================
-     4. Статистика, Алерт и Журнал
+     5. Статистика и Алерты контроля сытости Цири
      ========================================================================== */
   .stats, .history {
     background: #f9f9f9;
@@ -345,6 +376,7 @@
     border-radius: 4px;
   }
   
+  /* Цветовые оповещения */
   .remaining-food-alert {
     padding: 10px 12px;
     border-radius: 6px;
@@ -353,7 +385,8 @@
     line-height: 1.4;
   }
   
-  .remaining-food-alert.empty, .remaining-food-alert.underfed {
+  .remaining-food-alert.empty, 
+  .remaining-food-alert.underfed {
     background-color: #fff3e0;
     border-left: 4px solid #ff9800;
     color: #e65100;
@@ -371,6 +404,7 @@
     color: #c62828;
   }
   
+  /* Журнал */
   .history ul {
     list-style: none;
     padding: 0;
@@ -398,7 +432,9 @@
     text-align: center;
   }
   
-  /* Режим админа */
+  /* ==========================================================================
+     6. Режим Админа (Изменение истории)
+     ========================================================================== */
   .admin-banner {
     background: #fff3e0;
     border: 1px solid #ffe0b2;
@@ -452,17 +488,9 @@
     color: white; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 10px;
   }
   
-  /* Экран логина и загрузки */
-  .auth-container { padding: 30px 20px; text-align: center; }
-  .auth-form { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
-  .auth-form input { padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
-  .auth-buttons { display: flex; gap: 10px; }
-  .auth-buttons button { flex: 1; }
-  .loading-container { display: flex; flex-direction: column; align-items: center; padding: 50px 20px; }
-  .spinner { width: 40px; height: 40px; border: 4px solid #e3f2fd; border-top: 4px solid #1565c0; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
-  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  
-  /* Вкладка Профиля */
+  /* ==========================================================================
+     7. Вкладка Профиля (Фиолетовая тема)
+     ========================================================================== */
   .profile-card { background: #f3e5f5; border: 1px solid #e1bee7; border-radius: 12px; padding: 20px; }
   .profile-inputs { display: flex; gap: 15px; margin-bottom: 15px; }
   .input-group { display: flex; flex-direction: column; flex: 1; gap: 5px; }
@@ -474,7 +502,74 @@
   hr { border: 0; border-top: 1px solid #ce93d8; margin: 15px 0; }
   
   /* ==========================================================================
-     5. МАГИЯ ДЕСКТОПА (Разворачиваем в 2 колонки на ПК)
+     8. Экраны семейной авторизации и загрузки облака
+     ========================================================================== */
+  .auth-container {
+    padding: 30px 20px;
+    text-align: center;
+  }
+  
+  .auth-container h2 {
+    color: #2c3e50 !important;
+    font-size: 1.3rem;
+    margin-top: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .auth-form { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+  .auth-form input { 
+    padding: 12px; 
+    border: 1px solid #ced4da !important; 
+    border-radius: 8px; 
+    font-size: 1rem; 
+    background-color: #f8f9fa !important; 
+    color: #212529 !important;
+    outline: none;
+    box-sizing: border-box;
+  }
+  
+  .auth-form input::placeholder {
+    color: #6c757d !important;
+    opacity: 1;
+  }
+  
+  .auth-buttons { display: flex; gap: 10px; }
+  .auth-buttons button { flex: 1; }
+  
+  .loading-container { display: flex; flex-direction: column; align-items: center; padding: 50px 20px; }
+  .spinner { width: 40px; height: 40px; border: 4px solid #e3f2fd; border-top: 4px solid #1565c0; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  
+  /* Стили для сетки профиля и селектора активности */
+  .profile-inputs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  .full-width-input {
+    grid-column: span 2;
+  }
+  
+  .activity-select {
+    padding: 10px;
+    border: 1px solid #ce93d8;
+    border-radius: 6px;
+    background-color: white;
+    font-size: 0.95rem;
+    color: #333;
+    outline: none;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .status-hint-text {
+    margin-top: 4px;
+  }
+  
+  /* ==========================================================================
+     9. ОПТИМИЗАЦИЯ ДЛЯ КОМПЬЮТЕРОВ (UI разворачивается в 2 столбца)
      ========================================================================== */
   @media (min-width: 850px) {
     body {
@@ -482,14 +577,15 @@
     }
   
     .container {
-      max-width: 950px; /* Расширяем контейнер */
+      max-width: 950px; 
       display: grid;
-      grid-template-columns: 1fr 1fr; /* Ровно две колонки */
+      grid-template-columns: 1fr 1fr; 
       grid-gap: 24px;
       align-items: start;
+      /* Компактная подтяжка пустых зон вверх */
+      grid-auto-flow: row dense; 
     }
   
-    /* Элементы, которые должны растягиваться на всю ширину (на обе колонки) */
     .header-box, 
     .tabs-nav, 
     .profile-card, 
@@ -498,14 +594,12 @@
       grid-column: span 2;
     }
   
-    /* ЛЕВАЯ КОЛОНКА (Инпуты, форма, статус Цири) */
     .tamagotchi-screen, 
     .admin-banner, 
     .controls {
       grid-column: 1;
     }
   
-    /* ПРАВАЯ КОЛОНКА (Календарь, результаты, логи) */
     .calendar-widget, 
     .stats, 
     .history {
@@ -513,9 +607,7 @@
     }
   }
   
-  /* Маленькая оптимизация для совсем крошечных телефонов */
   @media (max-width: 400px) {
     body { padding: 5px; }
     .container { padding: 12px; gap: 10px; }
-    .mood { font-size: 2.8rem; }
   }
