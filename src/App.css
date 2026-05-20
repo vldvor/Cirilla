@@ -101,7 +101,7 @@
   }
   
   /* ==========================================================================
-     2. Экран Тамагочи (Статус и настроение Цири)
+     2. Экран Тамагочи (Статус и интерактивное фото Цири)
      ========================================================================== */
   .tamagotchi-screen {
     background: #e8f5e9;
@@ -111,15 +111,43 @@
     text-align: center;
   }
   
-  .mood {
-    font-size: 3.5rem;
-    margin: 5px 0;
+  .cat-avatar-container {
+    position: relative;
+    max-width: 100%;
+    height: 200px;
+    margin: 0 auto 12px auto;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: 2px solid #a5d6a7;
+  }
+  
+  .cat-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .mood-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.8rem;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
   }
   
   .status {
     font-weight: bold;
     color: #2e7d32;
     margin: 5px 0;
+    font-size: 1.05rem;
   }
   
   .last-actions {
@@ -481,7 +509,6 @@
     text-align: center;
   }
   
-  /* Принудительно красим заголовок в тёмный цвет против инверсии тем телефона */
   .auth-container h2 {
     color: #2c3e50 !important;
     font-size: 1.3rem;
@@ -489,7 +516,6 @@
     margin-bottom: 20px;
   }
   
-  /* Защищенные инпуты от черных блоков в темной теме смартфонов */
   .auth-form { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
   .auth-form input { 
     padding: 12px; 
@@ -510,7 +536,6 @@
   .auth-buttons { display: flex; gap: 10px; }
   .auth-buttons button { flex: 1; }
   
-  /* Спиннер загрузки данных */
   .loading-container { display: flex; flex-direction: column; align-items: center; padding: 50px 20px; }
   .spinner { width: 40px; height: 40px; border: 4px solid #e3f2fd; border-top: 4px solid #1565c0; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -531,7 +556,6 @@
       align-items: start;
     }
   
-    /* Компоненты на всю ширину экрана */
     .header-box, 
     .tabs-nav, 
     .profile-card, 
@@ -540,14 +564,12 @@
       grid-column: span 2;
     }
   
-    /* ЛЕВАЯ СТОРОНА (Интерактив и управление) */
     .tamagotchi-screen, 
     .admin-banner, 
     .controls {
       grid-column: 1;
     }
   
-    /* ПРАВАЯ СТОРОНА (Календарь, Архивы, Логи) */
     .calendar-widget, 
     .stats, 
     .history {
@@ -555,9 +577,7 @@
     }
   }
   
-  /* Для экстремально маленьких экранов смартфонов */
   @media (max-width: 400px) {
     body { padding: 5px; }
     .container { padding: 12px; gap: 10px; }
-    .mood { font-size: 2.8rem; }
   }
