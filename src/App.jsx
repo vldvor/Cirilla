@@ -9,7 +9,7 @@ const SUPABASE_URL = "https://cngmceduijevcrwfkzsg.supabase.co";
 const SUPABASE_ANON_KEY = "ВСТАВЬТЕ_СЮДА_ВАШ_ДЛИННЫЙ_ANON_PUBLIC_KEY";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// СЛОВАРЬ ПЕРЕВОДОВ
+// СЛОВАРЬ П ПЕРЕВОДОВ
 const translations = {
   ru: {
     title: "🐈 Дневник Цири",
