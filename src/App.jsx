@@ -6,7 +6,7 @@ import './App.css';
 // ПОДКЛЮЧЕНИЕ К ВАШЕМУ ОБЛАКУ
 // ==========================================================================
 const SUPABASE_URL = "https://cngmceduijevcrwfkzsg.supabase.co";
-const SUPABASE_ANON_KEY = "ВСТАВЬТЕ_СЮДА_ВАШ_ДЛИННЫЙ_ANON_PUBLIC_KEY";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuZ21jZWR1aWpldmNyd2ZrenNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTk3NTAsImV4cCI6MjA5NDgzNTc1MH0.iNb0gCvlmW2ETwTocMpIxyIERHMqllV5ZMLb67gpW9w";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // СЛОВАРЬ ПЕРЕВОДОВ
