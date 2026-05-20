@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import './App.css';
 
 // ==========================================================================
-// ПОДКЛЮЧЕНИЕ К ВАШЕМУ ОБЛАКУ (Вставьте сюда свои данные из Supabase)
+// ПОДКЛЮЧЕНИЕ К ВАШЕМУ ОБЛАКУ
 // ==========================================================================
 const SUPABASE_URL = "https://cngmceduijevcrwfkzsg.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuZ21jZWR1aWpldmNyd2ZrenNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTk3NTAsImV4cCI6MjA5NDgzNTc1MH0.iNb0gCvlmW2ETwTocMpIxyIERHMqllV5ZMLb67gpW9w";
@@ -23,8 +23,8 @@ const translations = {
     moodHungry: "Цири очень хочет есть или пить!",
     moodSnack: "Цири пора бы перекусить...",
     archiveDay: "🕵️‍♂️ Выбран день из архива:",
-    adminOn: "Режим Админа: ВКЛ",
-    adminOff: "Режим Админа: ВЫКЛ",
+    adminOn: "Режим Admin: ВКЛ",
+    adminOff: "Режим Admin: ВЫКЛ",
     adminPastBadge: "⚠️ Запись для Цири в прошлое",
     formTitle: "Форма Кормления",
     dry: "Сухой",
@@ -140,7 +140,7 @@ const monthNamesEn = ["January", "February", "March", "April", "May", "June", "J
 
 function App() {
   // ==========================================================================
-  // ЗОНА ХУКОВ (СТРОГИЙ ПОРЯДОК ОПРЕДЕЛЕНИЯ)
+  // СТРОГИЙ ПОРЯДОК ХУКОВ
   // ==========================================================================
   const [user, setUser] = useState(null);
   const [authEmail, setAuthEmail] = useState('');
@@ -176,12 +176,11 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Синхронизация с облаком при авторизации пользователя
+  // Синхронизация при авторизации
   useEffect(() => {
     if (user) {
       setIsLoadingData(true);
       
-      // 1. Подтягиваем профиль Цири
       supabase.from('cat_profile').select('*').eq('id', 1).single().then(({ data }) => {
         if (data) {
           setCatAge(data.age);
@@ -189,7 +188,6 @@ function App() {
         }
       });
 
-      // 2. Подтягиваем все логи ухода
       supabase.from('cat_logs').select('*').then(({ data }) => {
         if (data) {
           const mapped = data.map(item => ({
@@ -301,7 +299,7 @@ function App() {
   const datesWithLogs = new Set(logs.map(log => new Date(log.timestamp).toLocaleDateString('en-CA')));
 
   // ==========================================================================
-  // СИНХРОННЫЕ ОБЛАЧНЫЕ МЕТОДЫ
+  // СИНХРОННЫНЫЕ МЕТОДЫ ОБЛАКА
   // ==========================================================================
   const handleAuth = async (mode) => {
     if (mode === 'login') {
@@ -310,7 +308,7 @@ function App() {
     } else {
       const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
       if (error) alert(error.message);
-      else alert('Аккаунт успешно создан! Теперь нажмите "Войти".');
+      else alert('Аккаунт создан! Нажмите "Войти".');
     }
   };
 
@@ -328,24 +326,23 @@ function App() {
       foodType: type === 'food' ? foodType : null,
       amount: type === 'food' ? Number(amount) : 0,
       omega3: type === 'food' ? hasOmega3 : false,
+      comma: type === 'food' ? hasMaltPaste : false, // Совместимость со старыми полями
       maltPaste: type === 'food' ? hasMaltPaste : false,
       timestamp: logTimestamp.toISOString(),
     };
 
-    if (type === 'food') {
+    if (type === 'food' && hasOmega3) {
       const targetDayLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === selectedDate);
-      if (hasOmega3 && targetDayLogs.filter(log => log.omega3).length >= 1) {
+      if (targetDayLogs.filter(log => log.omega3).length >= 1) {
         alert(t.alertOmega);
       }
     }
 
-    // Оптимистичное обновление интерфейса для мгновенного отклика
     setLogs([newLogObj, ...logs]);
     setFoodAmount('');
     setHasOmega3(false);
     setHasMaltPaste(false);
 
-    // Отправка в облако Supabase
     await supabase.from('cat_logs').insert([{
       id: logId,
       type,
@@ -368,7 +365,7 @@ function App() {
     await supabase.from('cat_profile').update({ age: newAge, adult_weight: newWeight }).eq('id', 1);
   };
 
-  // Хронологическая сортировка Тамагочи
+  // Хронологическая логика Тамагочи
   const chronologicallySortedLogs = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   const lastFoodLog = chronologicallySortedLogs.find(log => log.type === 'food');
   const lastWaterLog = chronologicallySortedLogs.find(log => log.type === 'water');
@@ -419,7 +416,6 @@ function App() {
     return dayElements;
   };
 
-  // Проверка авторизации: если пользователя нет — показываем экран логина
   if (!user) {
     return (
       <div className="container auth-container">
@@ -464,8 +460,12 @@ function App() {
 
       {activeTab === 'care' && (
         <>
+          {/* ОБНОВЛЕННЫЙ ЭКРАН ТАМАГОЧИ С ЖИВЫМ ФОТО ЦИРИ */}
           <div className="tamagotchi-screen">
-            <div className="mood">{catMood}</div>
+            <div className="cat-avatar-container">
+              <img src="/ciri.jpg" alt="Ciri" className="cat-photo" onError={(e) => { e.target.style.display = 'none'; }} />
+              <div className="mood-badge">{catMood}</div>
+            </div>
             <p className="status">{catStatusText}</p>
             <div className="last-actions">
               <p>🍗 {t.food}: {hoursSinceFood === Infinity ? t.never : `${hoursSinceFood} ${t.hAgo}`}</p>
