@@ -9,7 +9,7 @@ const SUPABASE_URL = "https://cngmceduijevcrwfkzsg.supabase.co";
 const SUPABASE_ANON_KEY = "ВСТАВЬТЕ_СЮДА_ВАШ_ДЛИННЫЙ_ANON_PUBLIC_KEY";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// СЛОВАРЬ П ПЕРЕВОДОВ
+// СЛОВАРЬ ПЕРЕВОДОВ
 const translations = {
   ru: {
     title: "🐈 Дневник Цири",
@@ -145,9 +145,6 @@ const monthNamesRu = ["Январь", "Февраль", "Март", "Апрел�
 const monthNamesEn = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 function App() {
-  // ==========================================================================
-  // СТРОГИЙ ПОРЯДОК ХУКОВ (НЕ МЕНЯТЬ МЕСТАМИ ВО ИЗБЕЖАНИЕ БЕЛОЙ СТРАНИЦЫ)
-  // ==========================================================================
   const [user, setUser] = useState(null);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -170,7 +167,6 @@ function App() {
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
   const [isAdminMode, setIsAdminMode] = useState(false);
 
-  // Эффекты аутентификации
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -181,7 +177,6 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Синхронизация с облаком
   useEffect(() => {
     if (user) {
       setIsLoadingData(true);
@@ -226,7 +221,6 @@ function App() {
 
   const filteredLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === selectedDate);
 
-  // Сбор статистики
   const totalDrySelected = filteredLogs
     .filter(log => log.type === 'food' && log.foodType === 'dry')
     .reduce((sum, log) => sum + log.amount, 0);
@@ -239,7 +233,6 @@ function App() {
   const omega3CountSelected = filteredLogs.filter(log => log.omega3).length;
   const maltPasteCountSelected = filteredLogs.filter(log => log.maltPaste).length;
 
-  // Формула Carnilove с динамическим коэффициентом активности
   const getCarniloveDryNorm = (adultWeight, age) => {
     let baseNorm = { min: 25, max: 45 };
     
@@ -317,7 +310,6 @@ function App() {
 
   const datesWithLogs = new Set(logs.map(log => new Date(log.timestamp).toLocaleDateString('en-CA')));
 
-  // Методы авторизации и записи логов
   const handleAuth = async (mode) => {
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
@@ -386,7 +378,6 @@ function App() {
     }).eq('id', 1);
   };
 
-  // Тамагочи логика настроения
   const chronologicallySortedLogs = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   const lastFoodLog = chronologicallySortedLogs.find(log => log.type === 'food');
   const lastWaterLog = chronologicallySortedLogs.find(log => log.type === 'water');
@@ -403,7 +394,6 @@ function App() {
     catStatusText = t.moodSnack;
   }
 
-  // Сетка дней календаря
   const viewYear = calendarViewDate.getFullYear();
   const viewMonth = calendarViewDate.getMonth();
   const monthNames = lang === 'ru' ? monthNamesRu : monthNamesEn;
@@ -483,7 +473,6 @@ function App() {
         <>
           <div className="tamagotchi-screen">
             <div className="cat-avatar-container">
-              {/* Путь к фото Ciri.jpg с большой буквы С */}
               <img src="/Ciri.jpg" alt="Ciri" className="cat-photo" onError={(e) => { e.target.style.display = 'none'; }} />
               <div className="mood-badge">{catMood}</div>
             </div>
