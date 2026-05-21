@@ -26,7 +26,7 @@ const translations = {
     adminOn: "Режим Admin: ВКЛ",
     adminOff: "Режим Admin: ВЫКЛ",
     adminPastBadge: "⚠️ Запись для Цири в прошлое",
-    formTitle: "Форма Кормления",
+    formTitle: "Форма Кормления и Ухода",
     dry: "Сухой",
     wet: "Влажный",
     gramsPlace: "Граммы (г)",
@@ -54,9 +54,9 @@ const translations = {
     weightLabel: "Ожидаемый вес во взрослом возрасте (кг):",
     weightHint: "* Укажите целевой вес взрослой кошки (обычно 3-5 кг)",
     statusLabel: "Статус:",
-    statusKitten: "Цирилла растёт — активный рост 🍼",
+    statusKitten: "Цирилла растёт — active рост 🍼",
     statusAdult: "Цири взрослая кошка 🐈",
-    brandNorms: "💡 Текущие 100% нормы бренда с учётом активности:",
+    brandNorms: "💡 Текущие 100% нормы бренда с учётом параметров:",
     onlyDry: "Только сухой корм:",
     onlyWet: "Только влажный корм:",
     mixedTitle: "🔄 Динамическое смешанное кормление Цири:",
@@ -73,7 +73,15 @@ const translations = {
     loadingText: "Загрузка данных из облака... ☁️",
     activityLabel: "Уровень активности Цири:",
     activityCalm: "💤 Спокойная / Малоподвижная",
-    activityActive: "⚡ Активная / Бешеный тыгыдык"
+    activityActive: "⚡ Активная / Бешеный тыгыдык",
+    // МЕДИЦИНСКИЕ СТРОКИ
+    healthLabel: "Состояние здоровья Цирички:",
+    healthHealthy: "🟢 Здорова (Обычная норма)",
+    healthSick: "🏥 Приболела (-20% к норме из-за слабой активности)",
+    medicationLabel: "Лекарство",
+    btnGiveMed: "Дать лекарство 💊",
+    medPlace: "Название лекарства (например, Синулокс)",
+    consecutiveAlert: (days) => `⚠️ ВНИМАНИЕ! Цирилла недоедает уже ${days} дня(ей) подряд! Вероятно, принцесса плохо себя чувствует или ей не подходит дозировка. Понаблюдайте за поведением!`,
   },
   en: {
     title: "🐈 Ciri's Diary",
@@ -90,7 +98,7 @@ const translations = {
     adminOn: "Admin Mode: ON",
     adminOff: "Admin Mode: OFF",
     adminPastBadge: "⚠️ Log for Ciri into the past",
-    formTitle: "Feeding Form",
+    formTitle: "Feeding & Care Form",
     dry: "Dry",
     wet: "Wet",
     gramsPlace: "Grams (g)",
@@ -120,7 +128,7 @@ const translations = {
     statusLabel: "Status:",
     statusKitten: "Ciri is growing — active growth 🍼",
     statusAdult: "Ciri is an adult cat 🐈",
-    brandNorms: "💡 Current 100% Brand Norms with Activity adjustment:",
+    brandNorms: "💡 Current 100% Brand Norms with filters adjusted:",
     onlyDry: "Dry food only:",
     onlyWet: "Wet food only:",
     mixedTitle: "🔄 Ciri's Dynamic Mixed Feeding:",
@@ -137,7 +145,15 @@ const translations = {
     loadingText: "Fetching cloud data... ☁️",
     activityLabel: "Ciri's Activity Level:",
     activityCalm: "💤 Calm / Indoor",
-    activityActive: "⚡ Active / Hyperactive"
+    activityActive: "⚡ Active / Hyperactive",
+    // MEDICAL STRINGS
+    healthLabel: "Ciri's Health Status:",
+    healthHealthy: "🟢 Healthy (Standard Norm)",
+    healthSick: "🏥 Unwell (-20% norm due to low energy)",
+    medicationLabel: "Medicine",
+    btnGiveMed: "Give Medicine 💊",
+    medPlace: "Medicine name (e.g., Sinulox)",
+    consecutiveAlert: (days) => `⚠️ WARNING! Ciri has been underfed for ${days} consecutive days! She might be feeling unwell, please check her condition closely!`,
   }
 };
 
@@ -155,10 +171,12 @@ function App() {
   const [catAge, setCatAge] = useState(6);
   const [catAdultWeight, setCatAdultWeight] = useState(4);
   const [catActivity, setCatActivity] = useState('active'); 
+  const [catHealthStatus, setCatHealthStatus] = useState('healthy'); // ХУК БОЛЕЗНИ
   const [logs, setLogs] = useState([]);
 
   const [foodAmount, setFoodAmount] = useState('');
-  const [foodType, setFoodType] = useState('dry');
+  const [foodType, setFoodType] = useState('dry'); 
+  const [medicationName, setMedicationName] = useState(''); // ХУК НАЗВАНИЯ ТАБЛЕТОК
   const [hasOmega3, setHasOmega3] = useState(false);
   const [hasMaltPaste, setHasMaltPaste] = useState(false);
   
@@ -186,6 +204,7 @@ function App() {
           setCatAge(data.age);
           setCatAdultWeight(data.adult_weight);
           setCatActivity(data.activity_level || 'active'); 
+          setCatHealthStatus(data.health_status || 'healthy'); // Выкачиваем статус болезни
         }
       });
 
@@ -198,6 +217,7 @@ function App() {
             amount: item.amount,
             omega3: item.omega3,
             maltPaste: item.malt_paste,
+            medicationName: item.medication_name, // Синхронизируем лекарства
             timestamp: item.timestamp
           }));
           setLogs(mapped);
@@ -233,6 +253,7 @@ function App() {
   const omega3CountSelected = filteredLogs.filter(log => log.omega3).length;
   const maltPasteCountSelected = filteredLogs.filter(log => log.maltPaste).length;
 
+  // Формула Carnilove с динамическим коэффициентом активности И БОЛЕЗНИ
   const getCarniloveDryNorm = (adultWeight, age) => {
     let baseNorm = { min: 25, max: 45 };
     
@@ -271,13 +292,21 @@ function App() {
       }
     }
 
+    let resultNorm = { ...baseNorm };
+
+    // Если Цири активна — повышаем норму на 50%
     if (catActivity === 'active') {
-      return {
-        min: Math.round(baseNorm.min * 1.5),
-        max: Math.round(baseNorm.max * 1.5)
-      };
+      resultNorm.min = Math.round(resultNorm.min * 1.5);
+      resultNorm.max = Math.round(resultNorm.max * 1.5);
     }
-    return baseNorm;
+    
+    // Если Цири недомогает — снижаем итоговую планку на 20% от текущего состояния
+    if (catHealthStatus === 'sick') {
+      resultNorm.min = Math.round(resultNorm.min * 0.8);
+      resultNorm.max = Math.round(resultNorm.max * 0.8);
+    }
+
+    return resultNorm;
   };
 
   const dryNorm = getCarniloveDryNorm(catAdultWeight, catAge);
@@ -308,6 +337,32 @@ function App() {
     return 'empty';
   };
 
+  // МАТЕМАТИКА КОНТРОЛЯ НЕДОЕДАНИЯ ЗА 3 ПРОШЛЫХ ДНЯ
+  const checkConsecutiveUnderfedDays = () => {
+    let consecutiveDays = 0;
+    for (let i = 1; i <= 3; i++) {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - i);
+      const pastDateStr = pastDate.toLocaleDateString('en-CA');
+      
+      const dayLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === pastDateStr);
+      const dryEaten = dayLogs.filter(log => log.type === 'food' && log.foodType === 'dry').reduce((sum, l) => sum + l.amount, 0);
+      const wetEaten = dayLogs.filter(log => log.type === 'food' && log.foodType === 'wet').reduce((sum, l) => sum + l.amount, 0);
+      
+      const checkDryNorm = getCarniloveDryNorm(catAdultWeight, catAge);
+      const checkWetFraction = wetEaten / totalWetGramsNorm;
+      const checkActiveDryMin = Math.round(checkDryNorm.min * Math.max(0, 1 - checkWetFraction));
+
+      if (dryEaten < checkActiveDryMin) {
+        consecutiveDays++;
+      } else {
+        break; 
+      }
+    }
+    return consecutiveDays;
+  };
+  const underfedConsecutiveDays = checkConsecutiveUnderfedDays();
+
   const datesWithLogs = new Set(logs.map(log => new Date(log.timestamp).toLocaleDateString('en-CA')));
 
   const handleAuth = async (mode) => {
@@ -321,7 +376,8 @@ function App() {
     }
   };
 
-  const addLog = async (type, amount = 0) => {
+  // Метод отправки логов с поддержкой лекарств
+  const addLog = async (type, amount = 0, medName = null) => {
     let logTimestamp = new Date();
     if (isAdminMode && selectedDate !== getTodayString()) {
       const [year, month, day] = selectedDate.split('-').map(Number);
@@ -336,6 +392,7 @@ function App() {
       amount: type === 'food' ? Number(amount) : 0,
       omega3: type === 'food' ? hasOmega3 : false,
       maltPaste: type === 'food' ? hasMaltPaste : false,
+      medicationName: type === 'medication' ? medName : null,
       timestamp: logTimestamp.toISOString(),
     };
 
@@ -348,6 +405,7 @@ function App() {
 
     setLogs([newLogObj, ...logs]);
     setFoodAmount('');
+    setMedicationName('');
     setHasOmega3(false);
     setHasMaltPaste(false);
 
@@ -358,6 +416,7 @@ function App() {
       amount: newLogObj.amount,
       omega3: newLogObj.omega3,
       malt_paste: newLogObj.maltPaste,
+      medication_name: newLogObj.medicationName,
       timestamp: newLogObj.timestamp
     }]);
 
@@ -367,14 +426,16 @@ function App() {
     }
   };
 
-  const updateProfileInCloud = async (newAge, newWeight, newActivity) => {
+  const updateProfileInCloud = async (newAge, newWeight, newActivity, newHealth) => {
     setCatAge(newAge);
     setCatAdultWeight(newWeight);
     setCatActivity(newActivity);
+    setCatHealthStatus(newHealth);
     await supabase.from('cat_profile').update({ 
       age: newAge, 
       adult_weight: newWeight, 
-      activity_level: newActivity 
+      activity_level: newActivity,
+      health_status: newHealth
     }).eq('id', 1);
   };
 
@@ -471,12 +532,20 @@ function App() {
 
       {activeTab === 'care' && (
         <>
+          {/* КРИТИЧЕСКИЙ МЕДИЦИНСКИЙ АЛЕРТ ПРИ НЕДОЕДАНИИ 3 ДНЯ ПОДРЯД */}
+          {underfedConsecutiveDays >= 3 && (
+            <div className="consecutive-underfed-alert">
+              {t.consecutiveAlert(underfedConsecutiveDays)}
+            </div>
+          )}
+
           <div className="tamagotchi-screen">
             <div className="cat-avatar-container">
               <img src="/Ciri.jpg" alt="Ciri" className="cat-photo" onError={(e) => { e.target.style.display = 'none'; }} />
               <div className="mood-badge">{catMood}</div>
             </div>
             <p className="status">{catStatusText}</p>
+            {catHealthStatus === 'sick' && <div className="sick-status-badge">🏥 Режим лечения: норма еды адаптирована</div>}
             <div className="last-actions">
               <p>🍗 {t.food}: {hoursSinceFood === Infinity ? t.never : `${hoursSinceFood} ${t.hAgo}`}</p>
               <p>💧 {t.water}: {hoursSinceWater === Infinity ? t.never : `${hoursSinceWater} ${t.hAgo}`}</p>
@@ -508,23 +577,36 @@ function App() {
                 <label>
                   <input type="radio" name="foodType" value="wet" checked={foodType === 'wet'} onChange={() => setFoodType('wet')} /> 🥩 {t.wet}
                 </label>
-              </div>
-
-              <div className="action-box">
-                <input type="number" placeholder={t.gramsPlace} value={foodAmount} onChange={(e) => setFoodAmount(e.target.value)} />
-                <button onClick={() => foodAmount && addLog('food', foodAmount)}>{t.btnFeed}</button>
-              </div>
-
-              <div className="supplements">
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={hasOmega3} onChange={(e) => setHasOmega3(e.target.checked)} />
-                  <span>{t.addOmega}</span>
-                </label>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={hasMaltPaste} onChange={(e) => setHasMaltPaste(e.target.checked)} />
-                  <span>{t.addMalt}</span>
+                {/* НОВЫЙ ТУМБЛЕР ТАБЛЕТОК */}
+                <label>
+                  <input type="radio" name="foodType" value="medication" checked={foodType === 'medication'} onChange={() => setFoodType('medication')} /> 💊 {t.medicationLabel}
                 </label>
               </div>
+
+              {foodType === 'medication' ? (
+                <div className="action-box">
+                  <input type="text" placeholder={t.medPlace} value={medicationName} onChange={(e) => setMedicationName(e.target.value)} />
+                  <button onClick={() => medicationName && addLog('medication', 0, medicationName)} className="med-btn">{t.btnGiveMed}</button>
+                </div>
+              ) : (
+                <div className="action-box">
+                  <input type="number" placeholder={t.gramsPlace} value={foodAmount} onChange={(e) => setFoodAmount(e.target.value)} />
+                  <button onClick={() => foodAmount && addLog('food', foodAmount)}>{t.btnFeed}</button>
+                </div>
+              )}
+
+              {foodType !== 'medication' && (
+                <div className="supplements">
+                  <label className="checkbox-label">
+                    <input type="checkbox" checked={hasOmega3} onChange={(e) => setHasOmega3(e.target.checked)} />
+                    <span>{t.addOmega}</span>
+                  </label>
+                  <label className="checkbox-label">
+                    <input type="checkbox" checked={hasMaltPaste} onChange={(e) => setHasMaltPaste(e.target.checked)} />
+                    <span>{t.addMalt}</span>
+                  </label>
+                </div>
+              )}
             </div>
 
             <div className="action-box">
@@ -585,7 +667,11 @@ function App() {
                     <span className="time">{new Date(log.timestamp).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', {hour: '2-digit', minute:'2-digit'})}</span>
                     {log.type === 'food' ? (
                       <span>{log.foodType === 'dry' ? `🌾 ${t.dry}` : `🥩 ${t.wet}`}: {log.amount}g {log.omega3 && ' 🐟[Omega]'} {log.maltPaste && ' 🧴[Paste]'}</span>
-                    ) : `💦 ${t.waterLabel}`}
+                    ) : log.type === 'water' ? (
+                      `💦 ${t.waterLabel}`
+                    ) : (
+                      <span className="med-log-item">💊 {t.medicationLabel}: <strong>{log.medicationName}</strong></span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -601,23 +687,28 @@ function App() {
           <div className="profile-inputs-grid">
             <div className="input-group">
               <label>{t.ageLabel}</label>
-              <input type="number" value={catAge} onChange={(e) => updateProfileInCloud(Math.max(1, Number(e.target.value)), catAdultWeight, catActivity)} />
+              <input type="number" value={catAge} onChange={(e) => updateProfileInCloud(Math.max(1, Number(e.target.value)), catAdultWeight, catActivity, catHealthStatus)} />
             </div>
             
             <div className="input-group">
               <label>{t.weightLabel}</label>
-              <input type="number" step="0.5" value={catAdultWeight} onChange={(e) => updateProfileInCloud(catAge, Math.max(0.1, Number(e.target.value)), catActivity)} />
+              <input type="number" step="0.5" value={catAdultWeight} onChange={(e) => updateProfileInCloud(catAge, Math.max(0.1, Number(e.target.value)), catActivity, catHealthStatus)} />
             </div>
 
             <div className="input-group full-width-input">
               <label>{t.activityLabel}</label>
-              <select 
-                className="activity-select"
-                value={catActivity} 
-                onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, e.target.value)}
-              >
+              <select className="activity-select" value={catActivity} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, e.target.value, catHealthStatus)}>
                 <option value="calm">{t.activityCalm}</option>
                 <option value="active">{t.activityActive}</option>
+              </select>
+            </div>
+
+            {/* НОВЫЙ СЕЛЕКТОР ЗДОРОВЬЯ */}
+            <div className="input-group full-width-input">
+              <label>{t.healthLabel}</label>
+              <select className="activity-select health-select" value={catHealthStatus} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, e.target.value)}>
+                <option value="healthy">{t.healthHealthy}</option>
+                <option value="sick">{t.healthSick}</option>
               </select>
             </div>
           </div>
