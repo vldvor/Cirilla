@@ -56,11 +56,11 @@ const translations = {
     statusLabel: "Статус:",
     statusKitten: "Цирилла растёт — активный рост 🍼",
     statusAdult: "Цири взрослая кошка 🐈",
-    brandNorms: "💡 Текущие 100% базовые суточные нормы:",
+    brandNorms: "💡 Текущие 100% нормы бренда с учётом параметров:",
     onlyDry: "Сухой корм (без влажного):",
     onlyWet: "Влажный корм (без сухого):",
     mixedTitle: "🔄 Динамическое смешанное кормление Цири:",
-    mixedDesc: "Приложение рассчитывает баланс калорий на лету. Каждый gram съеденного влажного корма пропорционально уменьшает суточную цель для сухого корма, исключая недокорм или переедание.",
+    mixedDesc: "Приложение рассчитывает баланс калорий на лету. Каждый грамм съеденного влажного корма пропорционально уменьшает суточную цель для сухого корма, исключая недокорм или переедание.",
     alertOmega: "⚠️ Внимание! Омега-3 уже добавлялась в этот день. Избыток омеги может быть вреден для Цирички!",
     foodOverfed: (diff) => `⚠️ Ой-ёй! Циричка за сегодня нахрумкалась больше чем надо (на ${diff} г)! Кажется, пора прятать пакет с кормом 😼`,
     foodPerfect: "✨ Цирилла идеально сыта, дневная норма выполнена! Отличный баланс для нашей принцессы 😺",
@@ -173,7 +173,7 @@ const translations = {
     healthHealthy: "🟢 Healthy",
     healthSick: "🏥 Unwell (Strict vet control mode)",
     medicationLabel: "Medicine",
-    btnGiveMed: "Give Medicine 💊",
+    btnGiveMed: "Give Medicine ¼",
     medPlace: "Medicine name (e.g., Sinulox)",
     consecutiveAlert: (days) => `⚠️ WARNING! Ciri has been underfed for ${days} consecutive days! She might be feeling unwell, please check her condition closely!`,
     
@@ -220,7 +220,7 @@ function App() {
   const [catHealthStatus, setCatHealthStatus] = useState('healthy'); 
   
   const [catBrand, setCatBrand] = useState('carnilove');
-  const [customBrandName, setCustomBrandName] = useState('Свой корм'); // ХУК ТЕКСТОВОГО ИМЕНИ
+  const [customBrandName, setCustomBrandName] = useState('Свой корм'); 
   const [customDryMin, setCustomDryMin] = useState(40);
   const [customDryMax, setCustomDryMax] = useState(60);
   const [customWetNorm, setCustomWetNorm] = useState(170);
@@ -261,7 +261,7 @@ function App() {
           setCatActivity(data.activity_level || 'active'); 
           setCatHealthStatus(data.health_status || 'healthy'); 
           setCatBrand(data.feed_brand || 'carnilove');
-          setCustomBrandName(data.custom_brand_name || 'Свой корм'); // Выгружаем текстовое имя
+          setCustomBrandName(data.custom_brand_name || 'Свой корм'); 
           setCustomDryMin(data.custom_dry_min || 40); 
           setCustomDryMax(data.custom_dry_max || 60); 
           setCustomWetNorm(data.custom_wet_norm || 170);
@@ -476,7 +476,7 @@ function App() {
     setCustomDryMax(newCustomMax);
     setCatBrand(newBrand);
     setCustomWetNorm(newCustomWet);
-    setCustomBrandName(newBrandName); // Обновляем локально
+    setCustomBrandName(newBrandName); 
     
     await supabase.from('cat_profile').update({ 
       age: newAge, 
@@ -487,8 +487,39 @@ function App() {
       custom_dry_max: Number(newCustomMax),
       feed_brand: newBrand,
       custom_wet_norm: Number(newCustomWet),
-      custom_brand_name: newBrandName // Закидываем в Supabase
+      custom_brand_name: newBrandName 
     }).eq('id', 1);
+  };
+
+  const getVetReportData = () => {
+    const reportRows = [];
+    for (let i = 0; i < vetDaysPeriod; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toLocaleDateString('en-CA');
+      
+      const dayLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === dateStr);
+      
+      const dryAmount = dayLogs.filter(l => l.type === 'food' && l.foodType === 'dry').reduce((sum, l) => sum + l.amount, 0);
+      const wetAmount = dayLogs.filter(l => l.type === 'food' && l.foodType === 'wet').reduce((sum, l) => sum + l.amount, 0);
+      const waterCount = dayLogs.filter(l => l.type === 'water').length;
+      
+      const meds = [];
+      dayLogs.forEach(l => {
+        if (l.type === 'medication' && l.medicationName) meds.push(`💊 ${l.medicationName}`);
+        if (l.omega3) meds.push("🐟 Omega-3");
+        if (l.maltPaste) meds.push("🧴 Паста");
+      });
+
+      reportRows.push({
+        date: d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {day: '2-digit', month: '2-digit'}),
+        dry: dryAmount,
+        wet: wetAmount,
+        water: waterCount,
+        meds: meds.join(', ') || '—'
+      });
+    }
+    return reportRows;
   };
 
   const reportData = getVetReportData();
@@ -599,7 +630,7 @@ function App() {
 
           {activeTab === 'care' && (
             <>
-              {underfedConsecutiveDays >= 3 && (
+              {underfedConsecfedDays >= 3 && (
                 <div className="consecutive-underfed-alert">
                   {t.consecutiveAlert(underfedConsecutiveDays)}
                 </div>
@@ -719,7 +750,7 @@ function App() {
                 </div>
 
                 <p>{t.wetLabel} <strong>{totalWetSelected} g</strong> / <span className="target-hint">max: {totalWetGramsNorm}g</span></p>
-                <p>{t.waterLabel} <strong>{waterChangesSelected} {t.times}</strong></p>
+                <p>|{t.waterLabel} <strong>{waterChangesSelected} {t.times}</strong></p>
                 <p>{t.omegaLabel} <strong>{omega3CountSelected} {t.pcs}</strong></p>
                 <p>{t.maltLabel} <strong>{maltPasteCountSelected} {t.times}</strong></p>
               </div>
@@ -789,7 +820,6 @@ function App() {
 
                 {(catBrand === 'custom' || catHealthStatus === 'sick') && (
                   <>
-                    {/* НОВОЕ ПОЛЕ: ВВОД НАЗВАНИЯ ВАШЕГО КОРМА */}
                     <div className="input-group full-width-input">
                       <label style={{color: '#ff9800'}}>{t.customNameLabel}</label>
                       <input type="text" value={customBrandName} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, catHealthStatus, customDryMin, customDryMax, catBrand, customWetNorm, e.target.value)} />
