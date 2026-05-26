@@ -207,6 +207,7 @@ const monthNamesRu = ["Январь", "Февраль", "Март", "Апрел�
 const monthNamesEn = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 function App() {
+  // 1. ХУКИ СОСТОЯНИЯ (ВСЕГДА НА САМОМ ВЕРХУ)
   const [user, setUser] = useState(null);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -240,6 +241,7 @@ function App() {
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
   const [isAdminMode, setIsAdminMode] = useState(false);
 
+  // 2. ЭФФЕКТЫ СИНХРОНИЗАЦИИ
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -297,7 +299,8 @@ function App() {
     }
   }, [selectedDate]);
 
-  const t = translations[lang];
+  // 3. СИНХРОННЫЙ РАСЧЁТ ВСЕХ ПЕРЕМЕННЫХ И ЛОГИКИ (ДО ЛЮБЫХ ВОЗВРАТОВ)
+  const t = translations[lang] || translations.ru;
 
   const filteredLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === selectedDate);
 
@@ -416,8 +419,95 @@ function App() {
   };
   const underfedConsecutiveDays = checkConsecutiveUnderfedDays();
 
-  const datesWithLogs = new Set(logs.map(log => new Date(log.timestamp).toLocaleDateString('en-CA')));
+  const getVetReportData = () => {
+    const reportRows = [];
+    for (let i = 0; i < vetDaysPeriod; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toLocaleDateString('en-CA');
+      
+      const dayLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === dateStr);
+      
+      const dryAmount = dayLogs.filter(l => l.type === 'food' && l.foodType === 'dry').reduce((sum, l) => sum + l.amount, 0);
+      const wetAmount = dayLogs.filter(l => l.type === 'food' && l.foodType === 'wet').reduce((sum, l) => sum + l.amount, 0);
+      const waterCount = dayLogs.filter(l => l.type === 'water').length;
+      
+      const meds = [];
+      dayLogs.forEach(l => {
+        if (l.type === 'medication' && l.medicationName) meds.push(`💊 ${l.medicationName}`);
+        if (l.omega3) meds.push("🐟 Omega-3");
+        if (l.maltPaste) meds.push("🧴 Паста");
+      });
 
+      reportRows.push({
+        date: d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {day: '2-digit', month: '2-digit'}),
+        dry: dryAmount,
+        wet: wetAmount,
+        water: waterCount,
+        meds: meds.join(', ') || '—'
+      });
+    }
+    return reportRows;
+  };
+
+  const reportData = getVetReportData();
+  const reportTotalDry = reportData.reduce((sum, r) => sum + r.dry, 0);
+  const reportTotalWet = reportData.reduce((sum, r) => sum + r.wet, 0);
+  const reportTotalWater = reportData.reduce((sum, r) => sum + r.water, 0);
+
+  const chronologicallySortedLogs = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const lastFoodLog = chronologicallySortedLogs.find(log => log.type === 'food');
+  const lastWaterLog = chronologicallySortedLogs.find(log => log.type === 'water');
+  
+  // НАСТРОЙКА НАСТРОЕНИЯ И ВРЕМЕНИ (ТЕПЕРЬ СТО ПРОЦЕНТОВ В ОБЩЕЙ ОБЛАСТИ)
+  const hoursSinceFood = lastFoodLog ? Math.floor((new Date() - new Date(lastFoodLog.timestamp)) / (1000 * 60 * 60)) : Infinity;
+  const hoursSinceWater = lastWaterLog ? Math.floor((new Date() - new Date(lastWaterLog.timestamp)) / (1000 * 60 * 60)) : Infinity;
+
+  let catMood = "😺";
+  let catStatusText = t.moodFull;
+  if (hoursSinceFood > 12 || hoursSinceWater > 24) {
+    catMood = "😿";
+    catStatusText = t.moodHungry;
+  } else if (hoursSinceFood > 6 || hoursSinceWater > 12) {
+    catMood = "😼";
+    catStatusText = t.moodSnack;
+  }
+
+  const viewYear = calendarViewDate.getFullYear();
+  const viewMonth = calendarViewDate.getMonth();
+  const monthNames = lang === 'ru' ? monthNamesRu : monthNamesEn;
+  const weekdayNames = lang === 'ru' ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"] : ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+  const renderCalendarDays = () => {
+    const datesWithLogs = new Set(logs.map(log => new Date(log.timestamp).toLocaleDateString('en-CA')));
+    const totalDaysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const firstDayOfWeekIndex = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
+    const dayElements = [];
+    for (let i = 0; i < firstDayOfWeekIndex; i++) {
+      dayElements.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+    }
+    for (let day = 1; day <= totalDaysInMonth; day++) {
+      const currentFullDateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const hasData = datesWithLogs.has(currentFullDateStr);
+      const isSelected = selectedDate === currentFullDateStr;
+      const isToday = getTodayString() === currentFullDateStr;
+      const isFuture = new Date(currentFullDateStr) > new Date(getTodayString());
+
+      dayElements.push(
+        <div
+          key={`day-${day}`}
+          className={`calendar-day ${isSelected ? 'selected' : ''} ${hasData ? 'has-data' : ''} ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''}`}
+          onClick={() => !isFuture && setSelectedDate(currentFullDateStr)}
+        >
+          {day}
+          {hasData && <span className="data-dot"></span>}
+        </div>
+      );
+    }
+    return dayElements;
+  };
+
+  // 4. ОБРАБОТЧИКИ ДЕЙСТВИЙ (ФУНКЦИИ КНОПОК)
   const addLog = async (type, amount = 0, medName = null) => {
     let logTimestamp = new Date();
     if (isAdminMode && selectedDate !== getTodayString()) {
@@ -491,84 +581,44 @@ function App() {
     }).eq('id', 1);
   };
 
-  const getVetReportData = () => {
-    const reportRows = [];
-    for (let i = 0; i < vetDaysPeriod; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toLocaleDateString('en-CA');
-      
-      const dayLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === dateStr);
-      
-      const dryAmount = dayLogs.filter(l => l.type === 'food' && l.foodType === 'dry').reduce((sum, l) => sum + l.amount, 0);
-      const wetAmount = dayLogs.filter(l => l.type === 'food' && l.foodType === 'wet').reduce((sum, l) => sum + l.amount, 0);
-      const waterCount = dayLogs.filter(l => l.type === 'water').length;
-      
-      const meds = [];
-      dayLogs.forEach(l => {
-        if (l.type === 'medication' && l.medicationName) meds.push(`💊 ${l.medicationName}`);
-        if (l.omega3) meds.push("🐟 Omega-3");
-        if (l.maltPaste) meds.push("🧴 Паста");
-      });
-
-      reportRows.push({
-        date: d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {day: '2-digit', month: '2-digit'}),
-        dry: dryAmount,
-        wet: wetAmount,
-        water: waterCount,
-        meds: meds.join(', ') || '—'
-      });
+  const handleAuth = async (mode) => {
+    if (mode === 'login') {
+      const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+      if (error) alert(error.message);
+    } else {
+      const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+      if (error) alert(error.message);
+      else alert('Аккаунт создан! Нажмите "Войти".');
     }
-    return reportRows;
   };
 
-  // ==========================================================================
-  // ⚙️ СВЕРХВАЖНАЯ СИСТЕМНАЯ ФУНКЦИЯ КАЛЕНДАРЯ (ВЕРНУЛ НА МЕСТО)
-  // ==========================================================================
-  const viewYear = calendarViewDate.getFullYear();
-  const viewMonth = calendarViewDate.getMonth();
-  const monthNames = lang === 'ru' ? monthNamesRu : monthNamesEn;
-  const weekdayNames = lang === 'ru' ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"] : ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-
-  const renderCalendarDays = () => {
-    const totalDaysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const firstDayOfWeekIndex = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
-    const dayElements = [];
-    for (let i = 0; i < firstDayOfWeekIndex; i++) {
-      dayElements.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
-    }
-    for (let day = 1; day <= totalDaysInMonth; day++) {
-      const currentFullDateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const hasData = datesWithLogs.has(currentFullDateStr);
-      const isSelected = selectedDate === currentFullDateStr;
-      const isToday = getTodayString() === currentFullDateStr;
-      const isFuture = new Date(currentFullDateStr) > new Date(getTodayString());
-
-      dayElements.push(
-        <div
-          key={`day-${day}`}
-          className={`calendar-day ${isSelected ? 'selected' : ''} ${hasData ? 'has-data' : ''} ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''}`}
-          onClick={() => !isFuture && setSelectedDate(currentFullDateStr)}
-        >
-          {day}
-          {hasData && <span className="data-dot"></span>}
+  // 5. УСЛОВНЫЕ РАННИЕ ВОЗВРАТЫ (ТЕПЕРЬ ОНИ БЕЗОПАСНЫ ДЛЯ СКОУПА)
+  if (!user) {
+    return (
+      <div className="container auth-container">
+        <h2>{t.loginTitle}</h2>
+        <div className="auth-form">
+          <input type="email" placeholder="Email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
+          <input type="password" placeholder="Password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
+          <div className="auth-buttons">
+            <button onClick={() => handleAuth('login')}>{t.loginBtn}</button>
+            <button className="water-btn" onClick={() => handleAuth('register')}>{t.registerBtn}</button>
+          </div>
         </div>
-      );
-    }
-    return dayElements;
-  };
+      </div>
+    );
+  }
 
-  const reportData = getVetReportData();
-  const reportTotalDry = reportData.reduce((sum, r) => sum + r.dry, 0);
-  const reportTotalWet = reportData.reduce((sum, r) => sum + r.wet, 0);
-  const reportTotalWater = reportData.reduce((sum, r) => sum + r.water, 0);
+  if (isLoadingData) {
+    return (
+      <div className="container loading-container">
+        <div className="spinner"></div>
+        <p>{t.loadingText}</p>
+      </div>
+    );
+  }
 
-  const chronologicallySortedLogs = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  const lastFoodLog = chronologicallySortedLogs.find(log => log.type === 'food');
-  const lastWaterLog = chronologicallySortedLogs.find(log => log.type === 'water');
-  const hoursSinceFood = getHoursPassed(lastFoodLog?.timestamp);
-  const hoursSinceWater = getHoursPassed(lastWaterLog?.timestamp);
-
+  // 6. ОСНОВНОЙ РЕНДЕР JSX ИНТЕРФЕЙСА
   return (
     <div className="container">
       {!showVetReport && (
