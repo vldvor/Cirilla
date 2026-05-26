@@ -522,6 +522,42 @@ function App() {
     return reportRows;
   };
 
+  // ==========================================================================
+  // ⚙️ СВЕРХВАЖНАЯ СИСТЕМНАЯ ФУНКЦИЯ КАЛЕНДАРЯ (ВЕРНУЛ НА МЕСТО)
+  // ==========================================================================
+  const viewYear = calendarViewDate.getFullYear();
+  const viewMonth = calendarViewDate.getMonth();
+  const monthNames = lang === 'ru' ? monthNamesRu : monthNamesEn;
+  const weekdayNames = lang === 'ru' ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"] : ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+  const renderCalendarDays = () => {
+    const totalDaysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const firstDayOfWeekIndex = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
+    const dayElements = [];
+    for (let i = 0; i < firstDayOfWeekIndex; i++) {
+      dayElements.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+    }
+    for (let day = 1; day <= totalDaysInMonth; day++) {
+      const currentFullDateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const hasData = datesWithLogs.has(currentFullDateStr);
+      const isSelected = selectedDate === currentFullDateStr;
+      const isToday = getTodayString() === currentFullDateStr;
+      const isFuture = new Date(currentFullDateStr) > new Date(getTodayString());
+
+      dayElements.push(
+        <div
+          key={`day-${day}`}
+          className={`calendar-day ${isSelected ? 'selected' : ''} ${hasData ? 'has-data' : ''} ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''}`}
+          onClick={() => !isFuture && setSelectedDate(currentFullDateStr)}
+        >
+          {day}
+          {hasData && <span className="data-dot"></span>}
+        </div>
+      );
+    }
+    return dayElements;
+  };
+
   const reportData = getVetReportData();
   const reportTotalDry = reportData.reduce((sum, r) => sum + r.dry, 0);
   const reportTotalWet = reportData.reduce((sum, r) => sum + r.wet, 0);
@@ -532,21 +568,6 @@ function App() {
   const lastWaterLog = chronologicallySortedLogs.find(log => log.type === 'water');
   const hoursSinceFood = getHoursPassed(lastFoodLog?.timestamp);
   const hoursSinceWater = getHoursPassed(lastWaterLog?.timestamp);
-
-  let catMood = "😺";
-  let catStatusText = t.moodFull;
-  if (hoursSinceFood > 12 || hoursSinceWater > 24) {
-    catMood = "😿";
-    catStatusText = t.moodHungry;
-  } else if (hoursSinceFood > 6 || hoursSinceWater > 12) {
-    catMood = "😼";
-    catStatusText = t.moodSnack;
-  }
-
-  const viewYear = calendarViewDate.getFullYear();
-  const viewMonth = calendarViewDate.getMonth();
-  const monthNames = lang === 'ru' ? monthNamesRu : monthNamesEn;
-  const weekdayNames = lang === 'ru' ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"] : ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
   return (
     <div className="container">
@@ -630,7 +651,6 @@ function App() {
 
           {activeTab === 'care' && (
             <>
-              {/* ЗДЕСЬ ИСПРАВЛЕНА ОПЕЧАТКА С ИМЕНЕМ ПЕРЕМЕННОЙ */}
               {underfedConsecutiveDays >= 3 && (
                 <div className="consecutive-underfed-alert">
                   {t.consecutiveAlert(underfedConsecutiveDays)}
