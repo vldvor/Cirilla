@@ -82,7 +82,6 @@ const translations = {
     medPlace: "Название лекарства (например, Синулокс)",
     consecutiveAlert: (days) => `⚠️ ВНИМАНИЕ! Цирилла недоедает уже ${days} дня(ей) подряд! Вероятно, принцесса плохо себя чувствует или ей не подходит дозировка. Понаблюдайте за поведением!`,
     
-    // БЛОК УПРАВЛЕНИЯ БИБЛИОТЕКОЙ КОРМОВ
     brandLabel: "Выберите активный рацион питания:",
     brandCarnilove: "🌾 Carnilove (Автоматические формулы)",
     customDryMinLabel: "Норма сухого корма МИН (г):",
@@ -187,23 +186,7 @@ const translations = {
     customWetLabel: "Wet Food Daily Norm (g):",
     addFoodTitle: "➕ Save New Brand into Library",
     addFoodNamePlace: "Brand name (e.g., BRIT PREMIUM)",
-    addFoodBtn: "Save Brand to Cloud 💾",
-
-    vetReportBtn: "📄 Generate Report for Veterinarian",
-    vetModalTitle: "📋 Vet Medical Report Builder",
-    vetPeriod7: "Last 7 Days",
-    vetPeriod30: "Last 30 Days",
-    vetClose: "Close ✖",
-    vetPrint: "🖨️ Print / Save to PDF",
-    vetTableDate: "Date",
-    vetTableDry: "Dry Food",
-    vetTableWet: "Wet Food",
-    vetTableWater: "Water",
-    vetTableMeds: "Meds & Supplements",
-    vetBlankHeader: "MEDICAL BLANK OF PATIENT CIRILLA",
-    vetTotalDry: "Total dry food consumed:",
-    vetTotalWet: "Total wet food consumed:",
-    vetTotalWater: "Total water updates:"
+    addFoodBtn: "Save Brand to Cloud 💾"
   }
 };
 
@@ -225,7 +208,6 @@ function App() {
   const [customDryMin, setCustomDryMin] = useState(40);
   const [customDryMax, setCustomDryMax] = useState(60);
   
-  // ХУКИ БИБЛИОТЕКИ КОРМОВ
   const [savedFoods, setSavedFoods] = useState([]); 
   const [newBrandName, setNewBrandName] = useState('');
   const [newDryMin, setNewDryMin] = useState(45);
@@ -262,7 +244,6 @@ function App() {
     if (user) {
       setIsLoadingData(true);
       
-      // Выкачиваем параметры профиля Цири
       supabase.from('cat_profile').select('*').eq('id', 1).single().then(({ data }) => {
         if (data) {
           setCatAge(data.age);
@@ -275,12 +256,10 @@ function App() {
         }
       });
 
-      // Выкачиваем список сохраненных кормов из библиотеки
       supabase.from('cat_foods').select('*').order('brand_name').then(({ data }) => {
         if (data) setSavedFoods(data);
       });
 
-      // Выкачиваем журнал ухода
       supabase.from('cat_logs').select('*').then(({ data }) => {
         if (data) {
           const mapped = data.map(item => ({
@@ -310,10 +289,9 @@ function App() {
     }
   }, [selectedDate]);
 
-  // 3. МАТЕМАТИЧЕСКИЙ РАСЧЁТ ВСЕХ ДАННЫХ ПРИЛОЖЕНИЯ (МАСШТАБ ВИДИМОСТИ)
+  // 3. МАТЕМАТИЧЕСКИЙ РАСЧЁТ ВСЕХ ДАННЫХ ПРИЛОЖЕНИЯ
   const t = translations[lang] || translations.ru;
 
-  // Ищем текущий активный кастомный корм в нашей коллекции библиотек
   const currentSelectedFoodObj = savedFoods.find(f => f.brand_name === catBrand);
 
   const filteredLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === selectedDate);
@@ -331,16 +309,13 @@ function App() {
   const maltPasteCountSelected = filteredLogs.filter(log => log.maltPaste).length;
 
   const getDryNorm = (adultWeight, age) => {
-    // Если кошка приболела — действует строгий ветеринарный ручной оверрайд норм
     if (catHealthStatus === 'sick') {
       return { min: customDryMin, max: customDryMax };
     }
-    // Если выбран сохраненный кастомный корм из библиотеки — подтягиваем его нормы!
     if (catBrand !== 'carnilove' && currentSelectedFoodObj) {
       return { min: currentSelectedFoodObj.dry_min, max: currentSelectedFoodObj.dry_max };
     }
 
-    // По дефолту рассчитываем Carnilove
     let baseNorm = { min: 25, max: 45 };
     if (age >= 12) {
       baseNorm = { min: Math.round(adultWeight * 12), max: Math.round(adultWeight * 14) };
@@ -387,7 +362,6 @@ function App() {
 
   const dryNorm = getDryNorm(catAdultWeight, catAge);
   
-  // Норма влажного корма (кастомная из библиотеки профилей либо дефолтная Carnilove)
   const totalWetGramsNorm = (catBrand !== 'carnilove' && currentSelectedFoodObj)
     ? currentSelectedFoodObj.wet_norm
     : (catAdultWeight <= 3 ? 3.5 : catAdultWeight <= 6 ? 4.25 : 4.75) * 85;
@@ -506,6 +480,11 @@ function App() {
     return dayElements;
   };
 
+  const reportData = getVetReportData();
+  const reportTotalDry = reportData.reduce((sum, r) => sum + r.dry, 0);
+  const reportTotalWet = reportData.reduce((sum, r) => sum + r.wet, 0);
+  const reportTotalWater = reportData.reduce((sum, r) => sum + r.water, 0);
+
   const chronologicallySortedLogs = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   const lastFoodLog = chronologicallySortedLogs.find(log => log.type === 'food');
   const lastWaterLog = chronologicallySortedLogs.find(log => log.type === 'water');
@@ -567,7 +546,6 @@ function App() {
     }]);
   };
 
-  // СОХРАНЕНИЕ И ДОБАВЛЕНИЕ НОВОГО ПРОФИЛЯ КОРМА В БИБЛИОТЕКУ
   const handleAddNewFoodProfile = async () => {
     const cleanName = newBrandName.trim().toUpperCase();
     if (!cleanName) return;
@@ -579,20 +557,17 @@ function App() {
       wet_norm: Number(newWetNorm)
     };
 
-    // Отправляем в облачную таблицу cat_foods
     const { error } = await supabase.from('cat_foods').insert([newFoodObj]);
     if (error) {
       alert("Ошибка! Возможно корм с таким названием уже сохранен: " + error.message);
       return;
     }
 
-    // Обновляем локальный список и переключаем активный рацион
     const updatedList = [...savedFoods, newFoodObj].sort((a,b) => a.brand_name.localeCompare(b.brand_name));
     setSavedFoods(updatedList);
     setCatBrand(cleanName);
     setNewBrandName('');
 
-    // Синхронизируем выбор в профиль кошки
     await supabase.from('cat_profile').update({ feed_brand: cleanName }).eq('id', 1);
   };
 
@@ -627,7 +602,7 @@ function App() {
     }
   };
 
-  // 5. ЗАЩИТНЫЕ ВОЗВРАТЫ ДЛЯ ЭКРАНОВ АВТOРИЗАЦИИ
+  // 5. ЗАЩИТНЫЕ ВОЗВРАТЫ ДЛЯ ЭКРАНОВ АВТОРИЗАЦИИ
   if (!user) {
     return (
       <div className="container auth-container">
@@ -890,7 +865,6 @@ function App() {
               <h3>{t.profileTitle}</h3>
               
               <div className="profile-inputs-grid">
-                {/* ДИНАМИЧЕСКИЙ ВЫПАДАЮЩИЙ СПИСОК СOХРАНЕННЫХ КОРМОВ ИЗ БАЗЫ ДАННЫХ */}
                 <div className="input-group full-width-input">
                   <label>{t.brandLabel}</label>
                   <select className="activity-select" style={{borderColor: '#ff9800', fontWeight: 'bold'}} value={catBrand} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, catHealthStatus, customDryMin, customDryMax, e.target.value)}>
@@ -927,7 +901,6 @@ function App() {
                   </select>
                 </div>
 
-                {/* РЕЖИМ ЛЕЧЕНИЯ (РУЧНОЙ СУПЕР-ОВЕРРАЙД ВРАЧА) */}
                 {catHealthStatus === 'sick' && (
                   <>
                     <div className="input-group">
@@ -942,9 +915,6 @@ function App() {
                 )}
               </div>
 
-              {/* ==========================================================================
-                 🆕 ФОРМА ДОБАВЛЕНИЯ НОВЫХ РАЦИОНОВ В КЛЮЧЕВУЮ БИБЛИОТЕКУ КОРМОВ
-                 ========================================================================== */}
               <div className="add-food-profile-box" style={{marginTop: '20px', borderTop: '2px dashed #ce93d8', paddingTop: '15px'}}>
                 <h4 style={{color: '#6a1b9a', margin: '0 0 12px 0'}}>{t.addFoodTitle}</h4>
                 <div className="profile-inputs-grid">
@@ -965,7 +935,8 @@ function App() {
                     <input type="number" value={newWetNorm} onChange={(e) => setNewWetNorm(Number(e.target.value))} />
                   </div>
                 </div>
-                <button onClick={handleAddNewFoodProfile} style={{width: '100%', marginTop: '12px', backgroundColor: '#9c27b0'}} className="med-btn">
+                {/* КНОПКА ПЕРЕВЕДЕНА НА СВЕТЛЫЙ КЛАСС ИЗ CSS БЕЗ ИНЛАЙН СТИЛЕЙ */}
+                <button onClick={handleAddNewFoodProfile} className="add-saved-food-btn">
                   {t.addFoodBtn}
                 </button>
               </div>
