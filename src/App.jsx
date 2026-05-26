@@ -56,7 +56,7 @@ const translations = {
     statusLabel: "Статус:",
     statusKitten: "Цирилла растёт — активный рост 🍼",
     statusAdult: "Цири взрослая кошка 🐈",
-    brandNorms: "💡 Текущие 100% базовые суточные нормы:",
+    brandNorms: "💡 Текущие 100% базовые суточные нормы сухого корма:",
     onlyDry: "Сухой корм (без влажного):",
     onlyWet: "Влажный корм (без сухого):",
     mixedTitle: "🔄 Динамическое смешанное кормление Цири:",
@@ -82,13 +82,16 @@ const translations = {
     medPlace: "Название лекарства (например, Синулокс)",
     consecutiveAlert: (days) => `⚠️ ВНИМАНИЕ! Цирилла недоедает уже ${days} дня(ей) подряд! Вероятно, принцесса плохо себя чувствует или ей не подходит дозировка. Понаблюдайте за поведением!`,
     
-    brandLabel: "Бренд используемого корма:",
+    // БЛОК УПРАВЛЕНИЯ БИБЛИОТЕКОЙ КОРМОВ
+    brandLabel: "Выберите активный рацион питания:",
     brandCarnilove: "🌾 Carnilove (Автоматические формулы)",
-    brandCustom: "⚙️ Свой корм (Кастомный профиль)",
     customDryMinLabel: "Норма сухого корма МИН (г):",
     customDryMaxLabel: "Норма сухого корма МАКС (г):",
     customWetLabel: "Суточная норма влажного корма (г):",
-    customNameLabel: "Укажите название вашего бренда:",
+    
+    addFoodTitle: "➕ Создать и сохранить новый корм в библиотеку",
+    addFoodNamePlace: "Название корма (например, BRIT PREMIUM)",
+    addFoodBtn: "Сохранить корм в облако 💾",
 
     vetReportBtn: "📄 Сформировать отчёт для ветеринара",
     vetModalTitle: "📋 Конструктор медицинского отчёта",
@@ -177,13 +180,14 @@ const translations = {
     medPlace: "Medicine name (e.g., Sinulox)",
     consecutiveAlert: (days) => `⚠️ WARNING! Ciri has been underfed for ${days} consecutive days! She might be feeling unwell, please check her condition closely!`,
     
-    brandLabel: "Feeding Brand:",
+    brandLabel: "Select active ration profile:",
     brandCarnilove: "🌾 Carnilove (Automated Formulas)",
-    brandCustom: "⚙️ Custom Brand (Manual Norm Settings)",
     customDryMinLabel: "Dry Food Norm MIN (g):",
     customDryMaxLabel: "Dry Food Norm MAX (g):",
     customWetLabel: "Wet Food Daily Norm (g):",
-    customNameLabel: "Enter your custom brand name:",
+    addFoodTitle: "➕ Save New Brand into Library",
+    addFoodNamePlace: "Brand name (e.g., BRIT PREMIUM)",
+    addFoodBtn: "Save Brand to Cloud 💾",
 
     vetReportBtn: "📄 Generate Report for Veterinarian",
     vetModalTitle: "📋 Vet Medical Report Builder",
@@ -203,11 +207,8 @@ const translations = {
   }
 };
 
-const monthNamesRu = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
-const monthNamesEn = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
 function App() {
-  // 1. ХУКИ СОСТОЯНИЯ (ВСЕГДА НА САМОМ ВЕРХУ)
+  // 1. ХУКИ СОСТОЯНИЯ (STATE)
   const [user, setUser] = useState(null);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -221,11 +222,16 @@ function App() {
   const [catHealthStatus, setCatHealthStatus] = useState('healthy'); 
   
   const [catBrand, setCatBrand] = useState('carnilove');
-  const [customBrandName, setCustomBrandName] = useState('Свой корм'); 
   const [customDryMin, setCustomDryMin] = useState(40);
   const [customDryMax, setCustomDryMax] = useState(60);
-  const [customWetNorm, setCustomWetNorm] = useState(170);
   
+  // ХУКИ БИБЛИОТЕКИ КОРМОВ
+  const [savedFoods, setSavedFoods] = useState([]); 
+  const [newBrandName, setNewBrandName] = useState('');
+  const [newDryMin, setNewDryMin] = useState(45);
+  const [newDryMax, setNewDryMax] = useState(65);
+  const [newWetNorm, setNewWetNorm] = useState(170);
+
   const [logs, setLogs] = useState([]);
   const [showVetReport, setShowVetReport] = useState(false);
   const [vetDaysPeriod, setVetDaysPeriod] = useState(7);
@@ -241,7 +247,7 @@ function App() {
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
   const [isAdminMode, setIsAdminMode] = useState(false);
 
-  // 2. ЭФФЕКТЫ СИНХРОНИЗАЦИИ
+  // 2. СИНХРОНИЗАЦИЯ С ОБЛАКОМ СТАРТОВАЯ
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -256,6 +262,7 @@ function App() {
     if (user) {
       setIsLoadingData(true);
       
+      // Выкачиваем параметры профиля Цири
       supabase.from('cat_profile').select('*').eq('id', 1).single().then(({ data }) => {
         if (data) {
           setCatAge(data.age);
@@ -263,13 +270,17 @@ function App() {
           setCatActivity(data.activity_level || 'active'); 
           setCatHealthStatus(data.health_status || 'healthy'); 
           setCatBrand(data.feed_brand || 'carnilove');
-          setCustomBrandName(data.custom_brand_name || 'Свой корм'); 
           setCustomDryMin(data.custom_dry_min || 40); 
           setCustomDryMax(data.custom_dry_max || 60); 
-          setCustomWetNorm(data.custom_wet_norm || 170);
         }
       });
 
+      // Выкачиваем список сохраненных кормов из библиотеки
+      supabase.from('cat_foods').select('*').order('brand_name').then(({ data }) => {
+        if (data) setSavedFoods(data);
+      });
+
+      // Выкачиваем журнал ухода
       supabase.from('cat_logs').select('*').then(({ data }) => {
         if (data) {
           const mapped = data.map(item => ({
@@ -299,8 +310,11 @@ function App() {
     }
   }, [selectedDate]);
 
-  // 3. СИНХРОННЫЙ РАСЧЁТ ВСЕХ ПЕРЕМЕННЫХ И ЛОГИКИ (ДО ЛЮБЫХ ВОЗВРАТОВ)
+  // 3. МАТЕМАТИЧЕСКИЙ РАСЧЁТ ВСЕХ ДАННЫХ ПРИЛОЖЕНИЯ (МАСШТАБ ВИДИМОСТИ)
   const t = translations[lang] || translations.ru;
+
+  // Ищем текущий активный кастомный корм в нашей коллекции библиотек
+  const currentSelectedFoodObj = savedFoods.find(f => f.brand_name === catBrand);
 
   const filteredLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === selectedDate);
 
@@ -316,11 +330,17 @@ function App() {
   const omega3CountSelected = filteredLogs.filter(log => log.omega3).length;
   const maltPasteCountSelected = filteredLogs.filter(log => log.maltPaste).length;
 
-  const getCarniloveDryNorm = (adultWeight, age) => {
-    if (catBrand === 'custom' || catHealthStatus === 'sick') {
+  const getDryNorm = (adultWeight, age) => {
+    // Если кошка приболела — действует строгий ветеринарный ручной оверрайд норм
+    if (catHealthStatus === 'sick') {
       return { min: customDryMin, max: customDryMax };
     }
+    // Если выбран сохраненный кастомный корм из библиотеки — подтягиваем его нормы!
+    if (catBrand !== 'carnilove' && currentSelectedFoodObj) {
+      return { min: currentSelectedFoodObj.dry_min, max: currentSelectedFoodObj.dry_max };
+    }
 
+    // По дефолту рассчитываем Carnilove
     let baseNorm = { min: 25, max: 45 };
     if (age >= 12) {
       baseNorm = { min: Math.round(adultWeight * 12), max: Math.round(adultWeight * 14) };
@@ -365,10 +385,11 @@ function App() {
     return baseNorm;
   };
 
-  const dryNorm = getCarniloveDryNorm(catAdultWeight, catAge);
+  const dryNorm = getDryNorm(catAdultWeight, catAge);
   
-  const totalWetGramsNorm = catBrand === 'custom' 
-    ? customWetNorm 
+  // Норма влажного корма (кастомная из библиотеки профилей либо дефолтная Carnilove)
+  const totalWetGramsNorm = (catBrand !== 'carnilove' && currentSelectedFoodObj)
+    ? currentSelectedFoodObj.wet_norm
     : (catAdultWeight <= 3 ? 3.5 : catAdultWeight <= 6 ? 4.25 : 4.75) * 85;
 
   const consumedWetFraction = totalWetGramsNorm > 0 ? totalWetSelected / totalWetGramsNorm : 0;
@@ -404,9 +425,8 @@ function App() {
       
       const dayLogs = logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === pastDateStr);
       const dryEaten = dayLogs.filter(log => log.type === 'food' && log.foodType === 'dry').reduce((sum, l) => sum + l.amount, 0);
-      const wetEaten = dayLogs.filter(log => log.type === 'food' && log.foodType === 'wet').reduce((sum, l) => sum + l.amount, 0);
       
-      const fraction = totalWetGramsNorm > 0 ? wetEaten / totalWetGramsNorm : 0;
+      const fraction = totalWetGramsNorm > 0 ? totalWetSelected / totalWetGramsNorm : 0;
       const checkActiveDryMin = Math.round(dryNorm.min * Math.max(0, 1 - fraction));
 
       if (dryEaten < checkActiveDryMin) {
@@ -450,29 +470,8 @@ function App() {
     return reportRows;
   };
 
-  const reportData = getVetReportData();
-  const reportTotalDry = reportData.reduce((sum, r) => sum + r.dry, 0);
-  const reportTotalWet = reportData.reduce((sum, r) => sum + r.wet, 0);
-  const reportTotalWater = reportData.reduce((sum, r) => sum + r.water, 0);
-
-  const chronologicallySortedLogs = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  const lastFoodLog = chronologicallySortedLogs.find(log => log.type === 'food');
-  const lastWaterLog = chronologicallySortedLogs.find(log => log.type === 'water');
-  
-  // НАСТРОЙКА НАСТРОЕНИЯ И ВРЕМЕНИ (ТЕПЕРЬ СТО ПРОЦЕНТОВ В ОБЩЕЙ ОБЛАСТИ)
-  const hoursSinceFood = lastFoodLog ? Math.floor((new Date() - new Date(lastFoodLog.timestamp)) / (1000 * 60 * 60)) : Infinity;
-  const hoursSinceWater = lastWaterLog ? Math.floor((new Date() - new Date(lastWaterLog.timestamp)) / (1000 * 60 * 60)) : Infinity;
-
-  let catMood = "😺";
-  let catStatusText = t.moodFull;
-  if (hoursSinceFood > 12 || hoursSinceWater > 24) {
-    catMood = "😿";
-    catStatusText = t.moodHungry;
-  } else if (hoursSinceFood > 6 || hoursSinceWater > 12) {
-    catMood = "😼";
-    catStatusText = t.moodSnack;
-  }
-
+  const monthNamesRu = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+  const monthNamesEn = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const viewYear = calendarViewDate.getFullYear();
   const viewMonth = calendarViewDate.getMonth();
   const monthNames = lang === 'ru' ? monthNamesRu : monthNamesEn;
@@ -507,7 +506,23 @@ function App() {
     return dayElements;
   };
 
-  // 4. ОБРАБОТЧИКИ ДЕЙСТВИЙ (ФУНКЦИИ КНОПОК)
+  const chronologicallySortedLogs = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const lastFoodLog = chronologicallySortedLogs.find(log => log.type === 'food');
+  const lastWaterLog = chronologicallySortedLogs.find(log => log.type === 'water');
+  const hoursSinceFood = lastFoodLog ? Math.floor((new Date() - new Date(lastFoodLog.timestamp)) / (1000 * 60 * 60)) : Infinity;
+  const hoursSinceWater = lastWaterLog ? Math.floor((new Date() - new Date(lastWaterLog.timestamp)) / (1000 * 60 * 60)) : Infinity;
+
+  let catMood = "😺";
+  let catStatusText = t.moodFull;
+  if (hoursSinceFood > 12 || hoursSinceWater > 24) {
+    catMood = "😿";
+    catStatusText = t.moodHungry;
+  } else if (hoursSinceFood > 6 || hoursSinceWater > 12) {
+    catMood = "😼";
+    catStatusText = t.moodSnack;
+  }
+
+  // 4. МЕТОДЫ ОТПРАВКИ И ОБНОВЛЕНИЯ ДАННЫХ
   const addLog = async (type, amount = 0, medName = null) => {
     let logTimestamp = new Date();
     if (isAdminMode && selectedDate !== getTodayString()) {
@@ -550,14 +565,38 @@ function App() {
       medication_name: newLogObj.medicationName,
       timestamp: newLogObj.timestamp
     }]);
-
-    if (!isAdminMode) {
-      setSelectedDate(getTodayString());
-      setCalendarViewDate(new Date());
-    }
   };
 
-  const updateProfileInCloud = async (newAge, newWeight, newActivity, newHealth, newCustomMin, newCustomMax, newBrand, newCustomWet, newBrandName) => {
+  // СОХРАНЕНИЕ И ДОБАВЛЕНИЕ НОВОГО ПРОФИЛЯ КОРМА В БИБЛИОТЕКУ
+  const handleAddNewFoodProfile = async () => {
+    const cleanName = newBrandName.trim().toUpperCase();
+    if (!cleanName) return;
+
+    const newFoodObj = {
+      brand_name: cleanName,
+      dry_min: Number(newDryMin),
+      dry_max: Number(newDryMax),
+      wet_norm: Number(newWetNorm)
+    };
+
+    // Отправляем в облачную таблицу cat_foods
+    const { error } = await supabase.from('cat_foods').insert([newFoodObj]);
+    if (error) {
+      alert("Ошибка! Возможно корм с таким названием уже сохранен: " + error.message);
+      return;
+    }
+
+    // Обновляем локальный список и переключаем активный рацион
+    const updatedList = [...savedFoods, newFoodObj].sort((a,b) => a.brand_name.localeCompare(b.brand_name));
+    setSavedFoods(updatedList);
+    setCatBrand(cleanName);
+    setNewBrandName('');
+
+    // Синхронизируем выбор в профиль кошки
+    await supabase.from('cat_profile').update({ feed_brand: cleanName }).eq('id', 1);
+  };
+
+  const updateProfileInCloud = async (newAge, newWeight, newActivity, newHealth, newCustomMin, newCustomMax, newBrand) => {
     setCatAge(newAge);
     setCatAdultWeight(newWeight);
     setCatActivity(newActivity);
@@ -565,8 +604,6 @@ function App() {
     setCustomDryMin(newCustomMin);
     setCustomDryMax(newCustomMax);
     setCatBrand(newBrand);
-    setCustomWetNorm(newCustomWet);
-    setCustomBrandName(newBrandName); 
     
     await supabase.from('cat_profile').update({ 
       age: newAge, 
@@ -575,9 +612,7 @@ function App() {
       health_status: newHealth,
       custom_dry_min: Number(newCustomMin),
       custom_dry_max: Number(newCustomMax),
-      feed_brand: newBrand,
-      custom_wet_norm: Number(newCustomWet),
-      custom_brand_name: newBrandName 
+      feed_brand: newBrand
     }).eq('id', 1);
   };
 
@@ -592,7 +627,7 @@ function App() {
     }
   };
 
-  // 5. УСЛОВНЫЕ РАННИЕ ВОЗВРАТЫ (ТЕПЕРЬ ОНИ БЕЗОПАСНЫ ДЛЯ СКОУПА)
+  // 5. ЗАЩИТНЫЕ ВОЗВРАТЫ ДЛЯ ЭКРАНОВ АВТOРИЗАЦИИ
   if (!user) {
     return (
       <div className="container auth-container">
@@ -618,7 +653,7 @@ function App() {
     );
   }
 
-  // 6. ОСНОВНОЙ РЕНДЕР JSX ИНТЕРФЕЙСА
+  // 6. ОСНОВНОЙ КОРРЕКТНЫЙ JSX РЕНДЕР
   return (
     <div className="container">
       {!showVetReport && (
@@ -644,7 +679,7 @@ function App() {
           <div className="printable-medical-blank">
             <div className="blank-title">{t.vetBlankHeader}</div>
             <div className="blank-meta">
-              <p>• <strong>Бренд рациона:</strong> {catBrand === 'carnilove' ? 'Carnilove' : customBrandName}</p>
+              <p>• <strong>Активный рацион:</strong> {catBrand === 'carnilove' ? 'Carnilove' : catBrand}</p>
               <p>• <strong>Возраст:</strong> {catAge} мес. | <strong>Вес:</strong> {catAdultWeight} кг</p>
               <p>• <strong>Уровень активности:</strong> {catActivity === 'active' ? t.activityActive : t.activityCalm}</p>
               <p>• <strong>Текущее состояние здоровья:</strong> {catHealthStatus === 'sick' ? t.healthSick : t.healthHealthy}</p>
@@ -714,7 +749,7 @@ function App() {
                 </div>
                 <p className="status">{catStatusText}</p>
                 <div className="sick-status-badge">
-                  {catBrand === 'carnilove' ? '🌾 Рацион: Carnilove' : `⚙️ Рацион: ${customBrandName}`}
+                  {catBrand === 'carnilove' ? '🌾 Рацион: Carnilove' : `⚙️ Рацион: ${catBrand}`}
                   {catHealthStatus === 'sick' && ' | 🏥 Лечение'}
                 </div>
                 <div className="last-actions">
@@ -855,27 +890,30 @@ function App() {
               <h3>{t.profileTitle}</h3>
               
               <div className="profile-inputs-grid">
+                {/* ДИНАМИЧЕСКИЙ ВЫПАДАЮЩИЙ СПИСОК СOХРАНЕННЫХ КОРМОВ ИЗ БАЗЫ ДАННЫХ */}
                 <div className="input-group full-width-input">
                   <label>{t.brandLabel}</label>
-                  <select className="activity-select" style={{borderColor: '#ff9800'}} value={catBrand} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, catHealthStatus, customDryMin, customDryMax, e.target.value, customWetNorm, customBrandName)}>
+                  <select className="activity-select" style={{borderColor: '#ff9800', fontWeight: 'bold'}} value={catBrand} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, catHealthStatus, customDryMin, customDryMax, e.target.value)}>
                     <option value="carnilove">{t.brandCarnilove}</option>
-                    <option value="custom">{t.brandCustom}</option>
+                    {savedFoods.map(food => (
+                      <option key={food.id} value={food.brand_name}>⚙️ {food.brand_name}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="input-group">
                   <label>{t.ageLabel}</label>
-                  <input type="number" value={catAge} onChange={(e) => updateProfileInCloud(Math.max(1, Number(e.target.value)), catAdultWeight, catActivity, catHealthStatus, customDryMin, customDryMax, catBrand, customWetNorm, customBrandName)} />
+                  <input type="number" value={catAge} onChange={(e) => updateProfileInCloud(Math.max(1, Number(e.target.value)), catAdultWeight, catActivity, catHealthStatus, customDryMin, customDryMax, catBrand)} />
                 </div>
                 
                 <div className="input-group">
                   <label>{t.weightLabel}</label>
-                  <input type="number" step="0.5" value={catAdultWeight} onChange={(e) => updateProfileInCloud(catAge, Math.max(0.1, Number(e.target.value)), catActivity, catHealthStatus, customDryMin, customDryMax, catBrand, customWetNorm, customBrandName)} />
+                  <input type="number" step="0.5" value={catAdultWeight} onChange={(e) => updateProfileInCloud(catAge, Math.max(0.1, Number(e.target.value)), catActivity, catHealthStatus, customDryMin, customDryMax, catBrand)} />
                 </div>
 
                 <div className="input-group full-width-input">
                   <label>{t.activityLabel}</label>
-                  <select className="activity-select" value={catActivity} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, e.target.value, catHealthStatus, customDryMin, customDryMax, catBrand, customWetNorm, customBrandName)}>
+                  <select className="activity-select" value={catActivity} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, e.target.value, catHealthStatus, customDryMin, customDryMax, catBrand)}>
                     <option value="calm">{t.activityCalm}</option>
                     <option value="active">{t.activityActive}</option>
                   </select>
@@ -883,36 +921,56 @@ function App() {
 
                 <div className="input-group full-width-input">
                   <label>{t.healthLabel}</label>
-                  <select className="activity-select health-select" value={catHealthStatus} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, e.target.value, customDryMin, customDryMax, catBrand, customWetNorm, customBrandName)}>
+                  <select className="activity-select health-select" value={catHealthStatus} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, e.target.value, customDryMin, customDryMax, catBrand)}>
                     <option value="healthy">{t.healthHealthy}</option>
                     <option value="sick">{t.healthSick}</option>
                   </select>
                 </div>
 
-                {(catBrand === 'custom' || catHealthStatus === 'sick') && (
+                {/* РЕЖИМ ЛЕЧЕНИЯ (РУЧНОЙ СУПЕР-ОВЕРРАЙД ВРАЧА) */}
+                {catHealthStatus === 'sick' && (
                   <>
-                    <div className="input-group full-width-input">
-                      <label style={{color: '#ff9800'}}>{t.customNameLabel}</label>
-                      <input type="text" value={customBrandName} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, catHealthStatus, customDryMin, customDryMax, catBrand, customWetNorm, e.target.value)} />
-                    </div>
-
                     <div className="input-group">
-                      <label style={{color: '#c62828'}}>{t.customDryMinLabel}</label>
-                      <input type="number" value={customDryMin} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, catHealthStatus, Math.max(0, Number(e.target.value)), customDryMax, catBrand, customWetNorm, customBrandName)} />
+                      <label style={{color: '#c62828'}}>Вет. норма МИН (г):</label>
+                      <input type="number" value={customDryMin} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, catHealthStatus, Math.max(0, Number(e.target.value)), customDryMax, catBrand)} />
                     </div>
                     <div className="input-group">
-                      <label style={{color: '#c62828'}}>{t.customDryMaxLabel}</label>
-                      <input type="number" value={customDryMax} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, catHealthStatus, customDryMin, Math.max(0, Number(e.target.value)), catBrand, customWetNorm, customBrandName)} />
-                    </div>
-                    <div className="input-group full-width-input">
-                      <label style={{color: '#c62828'}}>{t.customWetLabel}</label>
-                      <input type="number" value={customWetNorm} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, catHealthStatus, customDryMin, customDryMax, catBrand, Math.max(0, Number(e.target.value)), customBrandName)} />
+                      <label style={{color: '#c62828'}}>Вет. норма МАКС (г):</label>
+                      <input type="number" value={customDryMax} onChange={(e) => updateProfileInCloud(catAge, catAdultWeight, catActivity, catHealthStatus, customDryMin, Math.max(0, Number(e.target.value)), catBrand)} />
                     </div>
                   </>
                 )}
               </div>
 
-              <div className="status-hint-text">
+              {/* ==========================================================================
+                 🆕 ФОРМА ДОБАВЛЕНИЯ НОВЫХ РАЦИОНОВ В КЛЮЧЕВУЮ БИБЛИОТЕКУ КОРМОВ
+                 ========================================================================== */}
+              <div className="add-food-profile-box" style={{marginTop: '20px', borderTop: '2px dashed #ce93d8', paddingTop: '15px'}}>
+                <h4 style={{color: '#6a1b9a', margin: '0 0 12px 0'}}>{t.addFoodTitle}</h4>
+                <div className="profile-inputs-grid">
+                  <div className="input-group full-width-input">
+                    <label>{t.customNameLabel}</label>
+                    <input type="text" placeholder={t.addFoodNamePlace} value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} />
+                  </div>
+                  <div className="input-group">
+                    <label>{t.customDryMinLabel}</label>
+                    <input type="number" value={newDryMin} onChange={(e) => setNewDryMin(Number(e.target.value))} />
+                  </div>
+                  <div className="input-group">
+                    <label>{t.customDryMaxLabel}</label>
+                    <input type="number" value={newDryMax} onChange={(e) => setNewDryMax(Number(e.target.value))} />
+                  </div>
+                  <div className="input-group full-width-input">
+                    <label>{t.customWetLabel}</label>
+                    <input type="number" value={newWetNorm} onChange={(e) => setNewWetNorm(Number(e.target.value))} />
+                  </div>
+                </div>
+                <button onClick={handleAddNewFoodProfile} style={{width: '100%', marginTop: '12px', backgroundColor: '#9c27b0'}} className="med-btn">
+                  {t.addFoodBtn}
+                </button>
+              </div>
+
+              <div className="status-hint-text" style={{marginTop: '15px'}}>
                 <small style={{color: '#7b1fa2', fontSize:'0.7rem'}}>{t.weightHint}</small>
               </div>
 
@@ -923,7 +981,7 @@ function App() {
               <h3>{t.brandNorms}</h3>
               <blockquote style={{background: 'white', margin: '10px 0', padding: '12px', borderLeft: '4px solid #ff9800', borderRadius: '4px'}}>
                 • <strong>{t.onlyDry}</strong> {dryNorm.min}-{dryNorm.max} г.<br />
-                • <strong>{t.onlyWet}</strong> {totalWetGramsNorm} г.
+                • <strong>{t.onlyWet}</strong> {Math.round(totalWetGramsNorm)} г.
               </blockquote>
               <div className="mixed-feeding-box">
                 <h4>{t.mixedTitle}</h4>
