@@ -56,7 +56,7 @@ const translations = {
     statusLabel: "Статус:",
     statusKitten: "Цирилла растёт — активный рост 🍼",
     statusAdult: "Цири взрослая кошка 🐈",
-    brandNorms: "💡 Текущие 100% нормы бренда с учётом параметров:",
+    brandNorms: "💡 Текущие 100% базовые суточные нормы:",
     onlyDry: "Сухой корм (без влажного):",
     onlyWet: "Влажный корм (без сухого):",
     mixedTitle: "🔄 Динамическое смешанное кормление Цири:",
@@ -173,7 +173,7 @@ const translations = {
     healthHealthy: "🟢 Healthy",
     healthSick: "🏥 Unwell (Strict vet control mode)",
     medicationLabel: "Medicine",
-    btnGiveMed: "Give Medicine ¼",
+    btnGiveMed: "Give Medicine 💊",
     medPlace: "Medicine name (e.g., Sinulox)",
     consecutiveAlert: (days) => `⚠️ WARNING! Ciri has been underfed for ${days} consecutive days! She might be feeling unwell, please check her condition closely!`,
     
@@ -630,7 +630,8 @@ function App() {
 
           {activeTab === 'care' && (
             <>
-              {underfedConsecfedDays >= 3 && (
+              {/* ЗДЕСЬ ИСПРАВЛЕНА ОПЕЧАТКА С ИМЕНЕМ ПЕРЕМЕННОЙ */}
+              {underfedConsecutiveDays >= 3 && (
                 <div className="consecutive-underfed-alert">
                   {t.consecutiveAlert(underfedConsecutiveDays)}
                 </div>
@@ -750,18 +751,18 @@ function App() {
                 </div>
 
                 <p>{t.wetLabel} <strong>{totalWetSelected} g</strong> / <span className="target-hint">max: {totalWetGramsNorm}g</span></p>
-                <p>|{t.waterLabel} <strong>{waterChangesSelected} {t.times}</strong></p>
+                <p>{t.waterLabel} <strong>{waterChangesSelected} {t.times}</strong></p>
                 <p>{t.omegaLabel} <strong>{omega3CountSelected} {t.pcs}</strong></p>
                 <p>{t.maltLabel} <strong>{maltPasteCountSelected} {t.times}</strong></p>
               </div>
 
               <div className="history">
                 <h3>{t.journalTitle}</h3>
-                {logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === selectedDate).length === 0 ? (
+                {filteredLogs.length === 0 ? (
                   <p className="no-data">{t.noData}</p>
                 ) : (
                   <ul>
-                    {logs.filter(log => new Date(log.timestamp).toLocaleDateString('en-CA') === selectedDate).map(log => (
+                    {filteredLogs.map(log => (
                       <li key={log.id}>
                         <span className="time">{new Date(log.timestamp).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', {hour: '2-digit', minute:'2-digit'})}</span>
                         {log.type === 'food' ? (
