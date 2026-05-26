@@ -22,7 +22,7 @@ const translations = {
     moodFull: "Цири сытая и довольная!",
     moodHungry: "Цири очень хочет есть или пить!",
     moodSnack: "Цири пора бы перекусить...",
-    archiveDay: "🕵️‍♂️ Выбран день из архива:",
+    archiveDay: "🕵️‍♂️ Выбран день из archives:",
     adminOn: "Режим Admin: ВКЛ",
     adminOff: "Режим Admin: ВЫКЛ",
     adminPastBadge: "⚠️ Запись для Цири в прошлое",
@@ -93,7 +93,7 @@ const translations = {
     vetTableDate: "Дата",
     vetTableDry: "Сухой корм",
     vetTableWet: "Влажный корм",
-    vetTableWater: "Вода",
+    vetTableWater: "Water",
     vetTableMeds: "Лекарства и добавки",
     vetBlankHeader: "МЕДИЦИНСКИЙ БЛАНК ПАЦИЕНТА ЦИРИЛЛЫ",
     vetTotalDry: "Всего сухого корма съедено:",
@@ -833,7 +833,7 @@ function App() {
               </div>
               <hr />
               <h3>{t.brandNorms}</h3>
-              blockquote>
+              <blockquote>
                 • <strong>{t.onlyDry}</strong> {dryNorm.min}-{dryNorm.max} g.<br />
               </blockquote>
               <div className="mixed-feeding-box">
